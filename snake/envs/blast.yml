@@ -1,0 +1,33 @@
+name: blast
+channels:
+  - bioconda
+  - defaults
+dependencies:
+  - _libgcc_mutex=0.1=main
+  - blast=2.5.0=hc0b0e79_3
+  - boost=1.73.0=py39h06a4308_11
+  - bzip2=1.0.8=h7b6447c_0
+  - ca-certificates=2021.5.25=h06a4308_1
+  - certifi=2021.5.30=py39h06a4308_0
+  - icu=58.2=he6710b0_3
+  - ld_impl_linux-64=2.33.1=h53a641e_7
+  - libboost=1.73.0=h3ff78a5_11
+  - libffi=3.3=he6710b0_2
+  - libgcc-ng=9.1.0=hdf63c60_0
+  - libstdcxx-ng=9.1.0=hdf63c60_0
+  - lz4-c=1.9.3=h2531618_0
+  - ncurses=6.2=he6710b0_1
+  - openssl=1.1.1k=h27cfd23_0
+  - pip=21.1.1=py39h06a4308_0
+  - py-boost=1.73.0=py39ha9443f7_11
+  - python=3.9.5=hdb3f193_3
+  - readline=8.1=h27cfd23_0
+  - setuptools=52.0.0=py39h06a4308_0
+  - sqlite=3.35.4=hdfb4753_0
+  - tk=8.6.10=hbc83047_0
+  - tzdata=2020f=h52ac0ba_0
+  - wheel=0.36.2=pyhd3eb1b0_0
+  - xz=5.2.5=h7b6447c_0
+  - zlib=1.2.11=h7b6447c_3
+  - zstd=1.4.9=haebb681_0
+prefix: /cluster/work/bewi/members/dondia/Anaconda3/envs/blast

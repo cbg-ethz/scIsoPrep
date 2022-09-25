@@ -1,0 +1,22 @@
+name: samtools
+channels:
+  - bioconda
+  - defaults
+dependencies:
+  - _libgcc_mutex=0.1=main
+  - bzip2=1.0.8=h7b6447c_0
+  - ca-certificates=2021.5.25=h06a4308_1
+  - curl=7.62.0=hbc83047_0
+  - htslib=1.9=h4da6232_3
+  - libcurl=7.62.0=h20c2e04_0
+  - libdeflate=1.2=h516909a_1
+  - libgcc=7.2.0=h69d50b8_2
+  - libgcc-ng=9.1.0=hdf63c60_0
+  - libssh2=1.9.0=h1ba5d50_1
+  - libstdcxx-ng=9.1.0=hdf63c60_0
+  - ncurses=6.1=he6710b0_1
+  - openssl=1.1.1k=h27cfd23_0
+  - samtools=1.9=h10a08f8_12
+  - xz=5.2.5=h7b6447c_0
+  - zlib=1.2.11=h7b6447c_3
+prefix: /cluster/work/bewi/members/dondia/Anaconda3/envs/samtools

@@ -1,0 +1,446 @@
+#!/user/bin/env python3
+
+"""snakemake -s Snakefile_split --configfile config.yaml --profile ~/.config/snakemake/lsf/ --restart-times=2 &> logs/snakelog.$(date +%Y-%m-%d.%H-%M-%S).out &"""
+
+#Snakefile_all.py
+
+import os
+from pathlib import Path
+
+# This function adapts the config object to include full path information
+include: "misc_snake.py"
+
+workdir: "results"
+SAMPLEMAPPING = config['specific']['sample_map']
+DATA_PATH = config['static']['data_path']
+REF_PATH = config['static']['ref_path']
+SCRIPT_DIR = config['static']['bin_path']
+BC_DIR = config['specific']['barcodes_dir']
+
+
+
+
+#--use-envmodules --config_file
+
+IDs = getSampleNames()
+SAMPLES = list(IDs.keys())
+BCs = getBCs(SAMPLES)
+
+rule all:
+    input:
+        'AllInfo'
+
+rule:
+    name: 'bam_to_sam'
+    input:
+        os.path.join(DATA_PATH,'{sample}_{id}.bam')
+    output:
+        '{sample}/input/{sample}_{id}.sam'
+    threads: 8
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 2048
+    conda:
+        "envs/samtools.yml"
+    shell:
+        "samtools view -@ 8 -h {input} > {output}"
+
+
+rule:
+    name: 'bam_to_fasta'
+    input:
+        os.path.join(DATA_PATH,'{sample}_{id}.bam')
+    output:
+        '{sample}/input/{sample}_{id}.fasta'
+    threads: 8
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 2048
+    conda:
+        "envs/samtools.yml"
+    shell:
+        """samtools view -@ 8 {input} | awk  '{{print ">"$1"\\n"$10}}' > {output}"""
+
+
+rule:
+    name: 'blastn'
+    input:
+        '{sample}/input/{sample}_{id}.fasta'
+    output:
+        '{sample}/unconcat/{sample}_{id}.mapped.m7'
+    threads:
+        4
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 16384
+    params:
+        adapters = os.path.join(REF_PATH, config['static']['adapters'])
+    conda:
+        "envs/blast.yml"
+    shell:
+        "blastn -query {input} -db {params.adapters} "
+        "-outfmt 7 -word_size 5 -num_threads 4 > {output}"
+
+
+rule:
+    name: 'unconcat'
+    input:
+        m7 = '{sample}/unconcat/{sample}_{id}.mapped.m7',
+        sam = '{sample}/input/{sample}_{id}.sam'
+    output:
+        temp('{sample}/unconcat/{sample}_{id}.subreads.sam')
+    params:
+        script_dir = config['static']['bin_path']
+    threads:
+        16
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 4096
+    shell:
+        "python {params.script_dir}/unconcat.py {input.sam} {input.m7} {output}"
+
+
+rule:
+    name: 'unconcat_sam_to_bam'
+    input:
+        '{sample}/unconcat/{sample}_{id}.subreads.sam'
+    output:
+        '{sample}/unconcat/{sample}_{id}.subreads.bam'
+    conda:
+        "envs/samtools.yml"
+    threads:
+        12
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 4096
+    shell:
+        "samtools view -@ 12 -Sb {input} > {output}"
+
+
+rule:
+    name: 'adapter_trimming'
+    input:
+        '{sample}/unconcat/{sample}_{id}.subreads.bam'
+    output:
+        bam = '{sample}/trimming/{sample}_{id}.trimmed.5p--3p.bam',
+        summary = '{sample}/trimming/{sample}_{id}.trimmed.lima.summary'
+    conda:
+        "envs/Isoseq3.yml"
+    params:
+        adapters = os.path.join(REF_PATH, config['static']['adapters']),
+
+    threads:
+        16
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 1024
+    shell:
+        "lima --isoseq --dump-clips --min-passes 3 "
+        "{input} {params.adapters} "
+        "trimming/{wildcards.sample}_{wildcards.id}.trimmed.bam"
+
+
+rule:
+    name: 'demultiplex'
+    input:
+        '{sample}/trimming/{sample}_{id}.trimmed.5p--3p.bam'
+    output:
+        '{sample}/demultiplex/{sample}_{id}.demultiplex.bam'
+    conda:
+        "envs/Isoseq3.yml"
+    threads:
+        16
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 1024
+    shell:
+        "isoseq3 tag {input} {output} --design T-12U-16B"
+
+
+rule:
+    name: 'refine'
+    input:
+        '{sample}/demultiplex/{sample}_{id}.demultiplex.bam'
+    output:
+        bam = '{sample}/polyA_trimming/{sample}_{id}.fltnc.bam',
+        report = '{sample}/polyA_trimming/{sample}_{id}.fltnc.report.csv',
+    conda:
+        "envs/Isoseq3.yml"
+    params:
+        adapters = os.path.join(REF_PATH, config['static']['adapters'])
+    threads:
+        16
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 1024
+    shell:
+        "isoseq3 refine {input} "
+        "{params.adapters} {output} --require-polya"
+
+rule:
+    name: 'split'
+    input:
+        sample2ids
+    output:
+        '{sample}/splitting_done.txt'
+    params:
+        script_dir = config['static']['bin_path'],
+        bc_dir = BC_DIR
+    threads:
+        16
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 16384
+    shell:
+        "python {params.script_dir}/split_cells_bam.py --sample {wildcards.sample} --bc_dir {params.bc_dir}"
+
+
+rule:
+    name: 'dedup_split'
+    input:
+        "{sample}/splitting_done.txt",
+    output:
+        fasta = os.path.join("{sample}/cells/{barcode}_{sample}/dedup/dedup.fasta"),
+        bam = os.path.join("{sample}/cells/{barcode}_{sample}/dedup/dedup.bam"),
+        log = os.path.join("{sample}/cells/{barcode}_{sample}/dedup/log_dedup.log")
+    conda:
+        "envs/Isoseq3.yml"
+    threads:
+        32
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 1024
+    shell:
+        "isoseq3 dedup {wildcards.sample}/cells/{wildcards.barcode}_{wildcards.sample}/fltnc.bam {output.bam} "
+        "-j 60 --log-level INFO --verbose --log-file {output.log}"
+
+
+rule:
+    name: 'make_csv_for_dedup'
+    input:
+        "{sample}/cells/{barcode}_{sample}/dedup/dedup.fasta"
+    output:
+        "{sample}/cells/{barcode}_{sample}/dedup/dedup.info.csv"
+    params:
+        cupcake = config['specific']['cupcake']
+    threads:
+        8
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 1024
+    shell:
+        "cd {wildcards.sample}/cells/{wildcards.barcode}_{wildcards.sample}/dedup/ && "
+        "python {params.cupcake}/singlecell/make_csv_for_dedup.py"
+
+
+rule:
+    name: 'mapping_split'
+    input:
+        dedup = "{sample}/cells/{barcode}_{sample}/dedup/dedup.fasta"
+    output:
+        sam = temp("{sample}/cells/{barcode}_{sample}/mapping/mapped.fasta.sam"),
+        sorted_sam = "{sample}/cells/{barcode}_{sample}/mapping/mapped.sorted.sam",
+        log = "{sample}/cells/{barcode}_{sample}/mapping/mapped.fasta.sam.log"
+    params:
+        hg38 = os.path.join(REF_PATH, config['static']['genome'])
+    conda:
+        "envs/Isoseq3.yml"
+    threads:
+        32
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 1024
+    shell:
+        "minimap2 -t 30 -ax splice -uf --secondary=no -C5 "
+        "{params.hg38} {input.dedup} "
+        "> {output.sam} 2> {output.log} "
+        "&& sort -k 3,3 -k 4,4n {output.sam} > {output.sorted_sam}"
+
+
+rule:
+    name: 'collapse_isoform_split'
+    input:
+        mapped = "{sample}/cells/{barcode}_{sample}/mapping/mapped.sorted.sam",
+        dedup = "{sample}/cells/{barcode}_{sample}/dedup/dedup.fasta"
+    output:
+        gff = "{sample}/cells/{barcode}_{sample}/mapping/x.collapsed.gff",
+        abundance = "{sample}/cells/{barcode}_{sample}/mapping/x.collapsed.abundance.txt",
+        group = "{sample}/cells/{barcode}_{sample}/mapping/x.collapsed.group.txt"
+    threads:
+        16
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 1024
+    shell:
+        "cd {wildcards.sample}/cells/{wildcards.barcode}_{wildcards.sample}/mapping/ && "
+        "collapse_isoforms_by_sam.py --input ../dedup/dedup.fasta "
+        "-s mapped.sorted.sam -c 0.99 -i 0.95 --gen_mol_count -o  x "
+
+
+rule:
+    name: 'sqanti3_qc_split'
+    input:
+        gff = "{sample}/cells/{barcode}_{sample}/mapping/x.collapsed.gff",
+        abundance = "{sample}/cells/{barcode}_{sample}/mapping/x.collapsed.abundance.txt"
+    output:
+        classification = "{sample}/cells/{barcode}_{sample}/sqanti3_qc/x.collapsed_classification.txt",
+        collapse_corrected = "{sample}/cells/{barcode}_{sample}/sqanti3_qc/x.collapsed_corrected.fasta"
+    params:
+        hg38 = os.path.join(REF_PATH, config['static']['genome']),
+        annotation = os.path.join(REF_PATH, config['static']['annotation']),
+        script_dir = config['static']['bin_path']
+    threads:
+        16
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 1024
+    shell:
+        "cd {wildcards.sample}/cells/{wildcards.barcode}_{wildcards.sample}/sqanti3_qc/ && "
+        "python {params.script_dir}/SQANTI3/sqanti3_qc.py "
+        "--gtf ../mapping/x.collapsed.gff "
+        "{params.annotation} {params.hg38} --skipORF "
+        "--fl_count ../mapping/x.collapsed.abundance.txt --skip_report  || true"
+
+rule:
+    name: 'sqanti3_qc_filter_split'
+    input:
+        gff = "{sample}/cells/{barcode}_{sample}/mapping/x.collapsed.gff",
+        classification = "{sample}/cells/{barcode}_{sample}/sqanti3_qc/x.collapsed_classification.txt",
+        collapse_corrected ="{sample}/cells/{barcode}_{sample}/sqanti3_qc/x.collapsed_corrected.fasta"
+    output:
+        "{sample}/cells/{barcode}_{sample}/sqanti3_qc/x.collapsed_classification.filtered_lite_classification.txt"
+    params:
+        script_dir = config['static']['bin_path']
+    threads:
+        16
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 1024
+    shell:
+        "cd {wildcards.sample}/cells/{wildcards.barcode}_{wildcards.sample}/sqanti3_qc/ && "
+        "python {params.script_dir}/SQANTI3/sqanti3_RulesFilter.py "
+        "x.collapsed_classification.txt x.collapsed_corrected.fasta "
+        "../mapping/x.collapsed.gff || true"
+
+
+rule:
+    name: 'merge_per_sample'
+    input:
+        sample2bcs1,
+        sample2bcs2,
+        sample2bcs3,
+        sample2bcs4
+    output:
+        temp('{sample}/mapping/{sample}.merge.sam'),
+        '{sample}/mapping/{sample}.dedup.info.csv'
+    params:
+        script_dir = config['static']['bin_path']
+    threads:
+        32
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 1024
+    shell:
+        "python {params.script_dir}/merge_cells_bc.py --sample {wildcards.sample}"
+
+        
+rule:
+    name: 'merge_sam_to_bam'
+    input:
+        '{sample}/mapping/{sample}.merge.sam'
+    output:
+        unsorted = '{sample}/mapping/{sample}.merge.bam',
+        sorted = '{sample}/mapping/{sample}.sorted.bam',
+        bai = '{sample}/mapping/{sample}.sorted.bam.bai'
+    conda:
+        "envs/samtools.yml"
+    threads:
+        32
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 1024
+    shell:
+        "samtools view -@ 32 -Sb {input} > {output.unsorted} && "
+        "samtools sort -@ 32 {output.unsorted} "
+        "-o {output.sorted} > {output.sorted} && "
+        "samtools index {output.sorted}"
+
+rule:
+    name: 'merge_all_samples'
+    input:
+        bam = expand('{sample}/mapping/{sample}.sorted.bam', sample = SAMPLES)
+    output:
+        'mapping_all_merge/merged_all.bam'
+    conda:
+        "envs/samtools.yml"
+    threads:
+        32
+    shell:
+        'samtools merge {input.bam} {input.bam}'
+
+
+rule:
+    name: 'collapse_isoform_final'
+    input:
+        bam = 'mapping_all_merge/merged_all.bam',
+    output:
+        'mapping_all_merge/correct_merge.collapsed.gff',
+        'mapping_all_merge/correct_merge.collapsed.abundance.txt',
+        'mapping_all_merge/correct_merge.collapsed.group.txt'
+    threads:
+        4
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 150000,
+        time_min = 3000
+    shell:
+        "collapse_isoforms_by_sam.py -b {input.bam} "
+        "-o mapping_all_merge/correct_merge "
+        "-c 0.99 -i 0.95 --gen_mol_count --cpus 4"
+
+rule:
+    name: 'sqanti3_qc_final'
+    input:
+        gff = 'mapping_all_merge/correct_merge.collapsed.gff',
+        abundance = 'mapping_all_merge/correct_merge.collapsed.abundance.txt'
+    output:
+        'sqanti_all_merge/correct_merge.collapsed_classification.txt',
+        'sqanti_all_merge/correct_merge.collapsed_corrected.fasta'
+    params:
+        hg38 = f"{REF_PATH}/hg38.fa",
+        annotation = f"{REF_PATH}/gencode.v36.annotation.gtf",
+        script_dir = config['static']['bin_path']
+    threads:
+        16
+    shell:
+        "cd sqanti_all_merge/ && "
+        "python {params.script_dir}/SQANTI3/sqanti3_qc.py "
+        "--gtf ../mapping_all_merge/correct_merge.collapsed.gff {params.annotation} {params.hg38} "
+        "--fl_count ../mapping_all_merge/correct_merge.collapsed.abundance.txt --skip_report "
+
+
+rule:
+    name: 'sqanti3_qc_filter_final'
+    input:
+        gff = 'mapping_all_merge/correct_merge.collapsed.gff',
+        classification = 'sqanti_all_merge/correct_merge.collapsed_classification.txt',
+        collapse_corrected= 'sqanti_all_merge/correct_merge.collapsed_corrected.fasta',
+    output:
+        'sqanti_all_merge/correct_merge.collapsed_classification.filtered_lite_classification.txt'
+    params:
+        script_dir = config['static']['bin_path'],
+    threads:
+        16
+    shell:
+        "cd sqanti_all_merge/ && "
+        "python {params.script_dir}/SQANTI3/sqanti3_RulesFilter.py "
+        "correct_merge.collapsed_classification.txt "
+        "correct_merge.collapsed_corrected.fasta "
+        "mapping_all_merge/correct_merge.collapsed.gff || true"
+
+rule:
+    name: 'AllInfo'
+    input:
+        group = 'mapping_all_merge/correct_merge.collapsed.group.txt',
+        classification = 'sqanti_all_merge/correct_merge.collapsed_classification.filtered_lite_classification.txt',
+        ctypes = expand(f'{BC_DIR}{{sample}}.txt', sample = SAMPLES)
+    output:
+        'AllInfo'
+    params:
+        script_dir = config['static']['bin_path']
+    threads:
+        32
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 1024
+    shell:
+        "python {params.script_dir}/AllInfo_V3.py --grp {input.group} --categ {input.classification} --cell_types {input.ctypes}"
+
+
+
+
+
+
+
+
