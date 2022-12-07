@@ -1,5 +1,5 @@
 specific:
-  sample_map: <path/to>/scIsoPrep/example_data/sample_map_retina.tsv
+  sample_map: <path/to>/scIsoPrep/example_data/sample_map_retina.txt
   barcodes_dir: <path/to>/scIsoPrep/example_data/bc_to_phenotype
   cupcake: <path/to>/scIsoPrep/scripts/SQANTI3-1.6/cDNA_Cupcake
   workdir: <path/to>/scIsoPrep/example_data/results
@@ -9,6 +9,6 @@ specific:
 static:
   data_path: <path/to>/data_bamfiles
   bin_path: <path/to>/scIsoPrep/scripts
-  adapters: <path/to>/scIsoPrep/primers/retina_adapters.fasta
+  adapters: <path/to>/scIsoPrep/primers/primers_retina.fasta
   genome: <path/to>/hg38.fa
   annotation: <path/to>/gencode.vXX.annotation.gtf

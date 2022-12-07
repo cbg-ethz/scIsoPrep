@@ -61,19 +61,18 @@ rule bam_to_fasta:
 
 rule blastn:
     input:
-        '{sample}/input/{sample}_{id}.fasta'
+        fasta = '{sample}/input/{sample}_{id}.fasta',
+        adapters = config['static']['adapters']
     output:
         '{sample}/unconcat/{sample}_{id}.mapped.m7'
     threads:
         4
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 16384
-    params:
-        adapters = config['static']['adapters']
     conda:
         "envs/blast.yml"
     shell:
-        "blastn -query {input} -db {params.adapters} "
+        "blastn -query {input.fasta} -db {input.adapters} "
         "-outfmt 7 -word_size 5 -num_threads 4 > {output}"
 
 
@@ -109,43 +108,39 @@ rule unconcat_sam_to_bam:
 
 rule adapter_trimming_no_concat:
     input:
-        os.path.join(DATA_PATH,'{sample}_{id}.subreads.bam')
+        bam = os.path.join(DATA_PATH,'{sample}_{id}.subreads.bam'),
+        adapters = config['static']['adapters']
     output:
         bam = '{sample}/trimming/{sample}_{id}.trimmed.5p--3p.bam',
         summary = '{sample}/trimming/{sample}_{id}.trimmed.lima.summary'
     conda:
         "envs/Isoseq3.yml"
-    params:
-        adapters = config['static']['adapters'],
-
     threads:
         16
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 1024
     shell:
         "lima --isoseq --dump-clips --min-passes 3 "
-        "{input} {params.adapters} "
+        "{input.bam} {input.adapters} "
         "{wildcards.sample}/trimming/{wildcards.sample}_{wildcards.id}.trimmed.bam"
 
 
 rule adapter_trimming:
     input:
-        '{sample}/unconcat/{sample}_{id}.subreads.bam'
+        sub = '{sample}/unconcat/{sample}_{id}.subreads.bam',
+        adapters = config['static']['adapters']
     output:
         bam = '{sample}/trimming/{sample}_{id}.trimmed.5p--3p.bam',
         summary = '{sample}/trimming/{sample}_{id}.trimmed.lima.summary'
     conda:
         "envs/Isoseq3.yml"
-    params:
-        adapters = config['static']['adapters'],
-
     threads:
         16
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 1024
     shell:
         "lima --isoseq --dump-clips --min-passes 3 "
-        "{input} {params.adapters} "
+        "{input.sub} {input.adapters} "
         "{wildcards.sample}/trimming/{wildcards.sample}_{wildcards.id}.trimmed.bam"
 
 
@@ -166,21 +161,20 @@ rule demultiplex:
 
 rule refine:
     input:
-        '{sample}/demultiplex/{sample}_{id}.demultiplex.bam'
+        bam = '{sample}/demultiplex/{sample}_{id}.demultiplex.bam',
+        adapters = config['static']['adapters']
     output:
         bam = '{sample}/polyA_trimming/{sample}_{id}.fltnc.bam',
         report = '{sample}/polyA_trimming/{sample}_{id}.fltnc.report.csv',
     conda:
         "envs/Isoseq3.yml"
-    params:
-        adapters = config['static']['adapters']
     threads:
         16
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 1024
     shell:
-        "isoseq3 refine {input} "
-        "{params.adapters} {output} --require-polya"
+        "isoseq3 refine {input.bam} "
+        "{input.adapters} {output} --require-polya"
 
 rule split:
     input:
@@ -440,7 +434,7 @@ rule AllInfo:
     input:
         group = 'mapping_all_merge/correct_merge.collapsed.group.txt',
         classification = 'sqanti_all_merge/correct_merge.collapsed_classification.filtered_lite_classification.txt',
-        ctypes = expand(f'{BC_DIR}{{sample}}.txt', sample = SAMPLES)
+        ctypes = expand(f'{BC_DIR}/{{sample}}.txt', sample = SAMPLES)
     output:
         'AllInfo'
     params:

@@ -12,6 +12,5 @@ snakemake \
   --restart-times 3 \
   -pr \
   --latency-wait 30 \
-  --show-failed-logs \
   --rerun-incomplete \
   "$@"

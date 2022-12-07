@@ -2,7 +2,7 @@
 
 PWD=$(pwd)
 
-sed -i "s:<path/to>/scIsoPrep:$PWD:" ./config/*.config 
+sed -i "s:<path/to>/scIsoPrep:$PWD:" ./config/*.yaml 
 
 cd scripts
 wget https://github.com/ConesaLab/SQANTI3/archive/refs/tags/v1.6.tar.gz

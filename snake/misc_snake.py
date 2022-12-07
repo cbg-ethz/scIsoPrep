@@ -14,11 +14,13 @@ def reverse_complement(seq):
 def getSampleNames():
     sample2id = {}
     if not 'SAMPLEMAPPING' in globals():
-        return ['NOMAPPINGFILE']
+        print('Sample map is missing. A sample file should be provided !')
+        sys.exit(1)
     try:
         open(SAMPLEMAPPING, "r")
     except IOError:
-        return ['NOMAPPINGFILE']
+        print('Sample map is missing. A sample file should be provided !')
+        sys.exit(1)
     df = pd.read_csv(SAMPLEMAPPING, sep = '\t')
     samples = dict(zip(df['sample'],df['files']))
     for sample,id in samples.items():
