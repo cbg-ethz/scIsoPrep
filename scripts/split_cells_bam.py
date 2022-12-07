@@ -19,7 +19,7 @@ def reverse_complement(seq):
 
 def get_bc(bc_dir, sample):
     bc_dict = {}
-    for bcfile in glob.glob(bc_dir+sample+'*.txt'): #sample.whatever.txt
+    for bcfile in glob.glob(bc_dir+'/' + sample+'*.txt'): 
         df_bc = pd.read_csv(bcfile, sep = '\t')
     return list(df_bc.barcodes)
 
