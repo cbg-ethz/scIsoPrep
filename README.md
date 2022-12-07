@@ -24,7 +24,7 @@ cd scisoprep
 ## Create conda environment
 First, create a new environment named "scisoprep":
 ```bash
-conda create --name scisoprep python=3
+./install_scisoprep.sh
 ```
 
 Second, source it:
@@ -32,31 +32,20 @@ Second, source it:
 conda activate scisoprep
 ```
 
-## Install requirements
+# Usage
 
-scIsoPrep follows the best practices of the Snakemake workflow manager in providing the software needed to run the pipeline in per-rule conda environments. Those environmnents are specified in the `envs/` directory in yaml files that are named `{rule_name}.yaml`. The easiest way to install and use the software is by running Snakemake with the `--use-conda` parameter. Snakemake will try to find the environments of the yaml files the rules point to, and install them if they are not already available. The directory for installing the conda environments can be specified with the `--conda-prefix` parameter.
-
-1. Make sure `snakemake` is in your PATH.
-   Follow the instructions on how to install `snakemake` [here](https://snakemake.readthedocs.io/en/stable/getting_started/installation.html).
-2. Install all conda environments the workflow needs before running an analysis with
+Before each usage, you should source the scisoprep environment:
 
 ```bash
-snakemake --use-conda --conda-create-envs-only --conda-prefix /my/directory/for/conda/envs/ -s workflow/snakefile_basic.smk --configfile config/config.yaml
+conda activate scisoprep
 ```
 
-- `--use-conda` instructs snakemake to utilize the `conda:` directive in the rules
-- `--conda-create-envs-only` specifies that only the installation of conda environments is triggered, not the analysis of the samples.
-- *(optional):* with `--conda-prefix /my/directory/for/conda/envs/` a directory for the installation of the conda environments can be specified.
-
-
-Now you are ready to run **scIsoPrep**!
-
-# Usage
 The scIsoPrep wrapper script `run_scisoprep.py` can be run with the following shell command:
 ```bash
 ./run_scIsoPrep 
 ```
 ### Before running the pipeline
+
 
 * **config file**
   * input directory
@@ -65,20 +54,23 @@ The scIsoPrep wrapper script `run_scisoprep.py` can be run with the following sh
     In addition to the input path, further resource information must be provided in the section `specific`. This information is primarily specifying
      the genomic reference used for the reads mapping and the transcriptomic reference required for isoform classification. An example `config.yaml` file ready for adaptation, as
     well as a brief description of the relevant config blocks, is provided in the directory `config/`.
-* **sample map**
-Provide a "sample_map", i.e. a tab delimited text file listing all samples that should be analysed (one row per sample).
-The sample map must contain a column with the header `sample` (see example below). This ID will be used to name files and identify the sample throughout the pipeline.
-An example file ready for adaptation is provided in the directory `config/`.
 
-Sample map example:
-```
-sample           files
-SAMPLE-1_Tumor     2
-SAMPLE-1_Healthy   4
-SAMPLE-2_Tumor     2
-SAMPLE-2_Healthy   4
-```
+* **reference files**
+  * A genome fasta file (http://genome.ucsc.edu/cgi-bin/hgGateway?db=hg38)
+  * A GENCODE gene annotation gtf file (https://www.gencodegenes.org/human/)
+
+* **sample map**
+  * Provide a sample map file, i.e. a tab delimited text file listing all samples that should be analysed, and how many bam files are associated to it (see example below). ID will be used to name files and identify the sample throughout the pipeline.
+  * Sample map example:
+  ```
+  sample     files
+  SampleA     2
+  SampleB     4
+  SampleC     2
+  ```
+* **input data**
+  * This pipeline take as input either concatenated or unconcatenated reads PacBio CCS bam files. I you use concatenated reads input, files should be named `SampleA_1.bam`, `SampleA_2.bam`, `SampleB_1.bam`, etc. (sample name should correspond to the sample map).  If you use unconcatenated reads as input, files should be named `SampleA_1.subreads.bam`, etc.
+
 
 # Example data
 
-TBD

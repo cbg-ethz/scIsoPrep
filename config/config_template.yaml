@@ -1,0 +1,15 @@
+specific:
+  sample_map: path/to/sample_map.tsv
+  barcodes_dir: path/to/directory_containing_barcodes_to_celltype
+  cupcake: path/to/scIsoPrep/scripts/SQANTI3-1.6/cDNA_Cupcake
+  workdir: /path/to/output_files
+  maxmem: 64000
+
+
+static:
+  data_path: path/to/data_bamfiles
+  ref_path: path/to/reference
+  bin_path: path/to/scIsoPrep/scripts
+  adapters: lima_adapters2.fasta
+  genome: hg38.fa
+  annotation: gencode.v36.annotation.gtf

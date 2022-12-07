@@ -1,8 +1,8 @@
 #!/user/bin/env python3
 
-"""snakemake -s Snakefile_split --configfile config.yaml --profile ~/.config/snakemake/lsf/ --restart-times=2 &> logs/snakelog.$(date +%Y-%m-%d.%H-%M-%S).out &"""
+"""snakemake -s scisoprep.snake --configfile config.yaml --profile ~/.config/snakemake/lsf/ --restart-times=2 &> logs/snakelog.$(date +%Y-%m-%d.%H-%M-%S).out &"""
 
-#Snakefile_all.py
+
 
 import os
 from pathlib import Path
@@ -10,13 +10,12 @@ from pathlib import Path
 # This function adapts the config object to include full path information
 include: "misc_snake.py"
 
-workdir: "results"
+workdir: config['specific']['workdir']
 SAMPLEMAPPING = config['specific']['sample_map']
 DATA_PATH = config['static']['data_path']
-REF_PATH = config['static']['ref_path']
 SCRIPT_DIR = config['static']['bin_path']
 BC_DIR = config['specific']['barcodes_dir']
-
+maxmem = config['specific']['maxmem']
 
 
 
@@ -26,12 +25,13 @@ IDs = getSampleNames()
 SAMPLES = list(IDs.keys())
 BCs = getBCs(SAMPLES)
 
+ruleorder: adapter_trimming_no_concat > adapter_trimming
+
 rule all:
     input:
         'AllInfo'
 
-rule:
-    name: 'bam_to_sam'
+rule bam_to_sam:
     input:
         os.path.join(DATA_PATH,'{sample}_{id}.bam')
     output:
@@ -45,8 +45,7 @@ rule:
         "samtools view -@ 8 -h {input} > {output}"
 
 
-rule:
-    name: 'bam_to_fasta'
+rule bam_to_fasta:
     input:
         os.path.join(DATA_PATH,'{sample}_{id}.bam')
     output:
@@ -60,8 +59,7 @@ rule:
         """samtools view -@ 8 {input} | awk  '{{print ">"$1"\\n"$10}}' > {output}"""
 
 
-rule:
-    name: 'blastn'
+rule blastn:
     input:
         '{sample}/input/{sample}_{id}.fasta'
     output:
@@ -71,7 +69,7 @@ rule:
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 16384
     params:
-        adapters = os.path.join(REF_PATH, config['static']['adapters'])
+        adapters = config['static']['adapters']
     conda:
         "envs/blast.yml"
     shell:
@@ -79,8 +77,7 @@ rule:
         "-outfmt 7 -word_size 5 -num_threads 4 > {output}"
 
 
-rule:
-    name: 'unconcat'
+rule unconcat:
     input:
         m7 = '{sample}/unconcat/{sample}_{id}.mapped.m7',
         sam = '{sample}/input/{sample}_{id}.sam'
@@ -96,8 +93,7 @@ rule:
         "python {params.script_dir}/unconcat.py {input.sam} {input.m7} {output}"
 
 
-rule:
-    name: 'unconcat_sam_to_bam'
+rule unconcat_sam_to_bam:
     input:
         '{sample}/unconcat/{sample}_{id}.subreads.sam'
     output:
@@ -111,18 +107,16 @@ rule:
     shell:
         "samtools view -@ 12 -Sb {input} > {output}"
 
-
-rule:
-    name: 'adapter_trimming'
+rule adapter_trimming_no_concat:
     input:
-        '{sample}/unconcat/{sample}_{id}.subreads.bam'
+        os.path.join(DATA_PATH,'{sample}_{id}.subreads.bam')
     output:
         bam = '{sample}/trimming/{sample}_{id}.trimmed.5p--3p.bam',
         summary = '{sample}/trimming/{sample}_{id}.trimmed.lima.summary'
     conda:
         "envs/Isoseq3.yml"
     params:
-        adapters = os.path.join(REF_PATH, config['static']['adapters']),
+        adapters = config['static']['adapters'],
 
     threads:
         16
@@ -131,11 +125,31 @@ rule:
     shell:
         "lima --isoseq --dump-clips --min-passes 3 "
         "{input} {params.adapters} "
-        "trimming/{wildcards.sample}_{wildcards.id}.trimmed.bam"
+        "{wildcards.sample}/trimming/{wildcards.sample}_{wildcards.id}.trimmed.bam"
 
 
-rule:
-    name: 'demultiplex'
+rule adapter_trimming:
+    input:
+        '{sample}/unconcat/{sample}_{id}.subreads.bam'
+    output:
+        bam = '{sample}/trimming/{sample}_{id}.trimmed.5p--3p.bam',
+        summary = '{sample}/trimming/{sample}_{id}.trimmed.lima.summary'
+    conda:
+        "envs/Isoseq3.yml"
+    params:
+        adapters = config['static']['adapters'],
+
+    threads:
+        16
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 1024
+    shell:
+        "lima --isoseq --dump-clips --min-passes 3 "
+        "{input} {params.adapters} "
+        "{wildcards.sample}/trimming/{wildcards.sample}_{wildcards.id}.trimmed.bam"
+
+
+rule demultiplex:
     input:
         '{sample}/trimming/{sample}_{id}.trimmed.5p--3p.bam'
     output:
@@ -150,8 +164,7 @@ rule:
         "isoseq3 tag {input} {output} --design T-12U-16B"
 
 
-rule:
-    name: 'refine'
+rule refine:
     input:
         '{sample}/demultiplex/{sample}_{id}.demultiplex.bam'
     output:
@@ -160,7 +173,7 @@ rule:
     conda:
         "envs/Isoseq3.yml"
     params:
-        adapters = os.path.join(REF_PATH, config['static']['adapters'])
+        adapters = config['static']['adapters']
     threads:
         16
     resources:
@@ -169,8 +182,7 @@ rule:
         "isoseq3 refine {input} "
         "{params.adapters} {output} --require-polya"
 
-rule:
-    name: 'split'
+rule split:
     input:
         sample2ids
     output:
@@ -186,8 +198,7 @@ rule:
         "python {params.script_dir}/split_cells_bam.py --sample {wildcards.sample} --bc_dir {params.bc_dir}"
 
 
-rule:
-    name: 'dedup_split'
+rule dedup_split:
     input:
         "{sample}/splitting_done.txt",
     output:
@@ -205,8 +216,7 @@ rule:
         "-j 60 --log-level INFO --verbose --log-file {output.log}"
 
 
-rule:
-    name: 'make_csv_for_dedup'
+rule make_csv_for_dedup:
     input:
         "{sample}/cells/{barcode}_{sample}/dedup/dedup.fasta"
     output:
@@ -222,8 +232,7 @@ rule:
         "python {params.cupcake}/singlecell/make_csv_for_dedup.py"
 
 
-rule:
-    name: 'mapping_split'
+rule mapping_split:
     input:
         dedup = "{sample}/cells/{barcode}_{sample}/dedup/dedup.fasta"
     output:
@@ -231,7 +240,7 @@ rule:
         sorted_sam = "{sample}/cells/{barcode}_{sample}/mapping/mapped.sorted.sam",
         log = "{sample}/cells/{barcode}_{sample}/mapping/mapped.fasta.sam.log"
     params:
-        hg38 = os.path.join(REF_PATH, config['static']['genome'])
+        hg38 = config['static']['genome']
     conda:
         "envs/Isoseq3.yml"
     threads:
@@ -245,8 +254,7 @@ rule:
         "&& sort -k 3,3 -k 4,4n {output.sam} > {output.sorted_sam}"
 
 
-rule:
-    name: 'collapse_isoform_split'
+rule collapse_isoform_split:
     input:
         mapped = "{sample}/cells/{barcode}_{sample}/mapping/mapped.sorted.sam",
         dedup = "{sample}/cells/{barcode}_{sample}/dedup/dedup.fasta"
@@ -264,8 +272,7 @@ rule:
         "-s mapped.sorted.sam -c 0.99 -i 0.95 --gen_mol_count -o  x "
 
 
-rule:
-    name: 'sqanti3_qc_split'
+rule sqanti3_qc_split:
     input:
         gff = "{sample}/cells/{barcode}_{sample}/mapping/x.collapsed.gff",
         abundance = "{sample}/cells/{barcode}_{sample}/mapping/x.collapsed.abundance.txt"
@@ -273,22 +280,25 @@ rule:
         classification = "{sample}/cells/{barcode}_{sample}/sqanti3_qc/x.collapsed_classification.txt",
         collapse_corrected = "{sample}/cells/{barcode}_{sample}/sqanti3_qc/x.collapsed_corrected.fasta"
     params:
-        hg38 = os.path.join(REF_PATH, config['static']['genome']),
-        annotation = os.path.join(REF_PATH, config['static']['annotation']),
-        script_dir = config['static']['bin_path']
+        hg38 = config['static']['genome'],
+        annotation = config['static']['annotation'],
+        script_dir = config['static']['bin_path'],
+        cupcake = config['specific']['cupcake']
     threads:
         16
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 1024
     shell:
+        "export RSCRIPTPATH=$(which Rscript) ; "
+        "export PYTHONPATH={params.cupcake}/sequence/ ; "
+        "export PYTHONPATH=$PYTHONPATH:{params.cupcake}/ ; "
         "cd {wildcards.sample}/cells/{wildcards.barcode}_{wildcards.sample}/sqanti3_qc/ && "
-        "python {params.script_dir}/SQANTI3/sqanti3_qc.py "
+        "python {params.script_dir}/SQANTI3-1.6/sqanti3_qc.py "
         "--gtf ../mapping/x.collapsed.gff "
         "{params.annotation} {params.hg38} --skipORF "
         "--fl_count ../mapping/x.collapsed.abundance.txt --skip_report  || true"
 
-rule:
-    name: 'sqanti3_qc_filter_split'
+rule sqanti3_qc_filter_split:
     input:
         gff = "{sample}/cells/{barcode}_{sample}/mapping/x.collapsed.gff",
         classification = "{sample}/cells/{barcode}_{sample}/sqanti3_qc/x.collapsed_classification.txt",
@@ -296,20 +306,23 @@ rule:
     output:
         "{sample}/cells/{barcode}_{sample}/sqanti3_qc/x.collapsed_classification.filtered_lite_classification.txt"
     params:
-        script_dir = config['static']['bin_path']
+        script_dir = config['static']['bin_path'],
+        cupcake = config['specific']['cupcake']
     threads:
         16
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 1024
     shell:
+        "export RSCRIPTPATH=$(which Rscript) ; "
+        "export PYTHONPATH={params.cupcake}/sequence/ ; "
+        "export PYTHONPATH=$PYTHONPATH:{params.cupcake}/ ; "
         "cd {wildcards.sample}/cells/{wildcards.barcode}_{wildcards.sample}/sqanti3_qc/ && "
-        "python {params.script_dir}/SQANTI3/sqanti3_RulesFilter.py "
+        "python {params.script_dir}/SQANTI3-1.6/sqanti3_RulesFilter.py "
         "x.collapsed_classification.txt x.collapsed_corrected.fasta "
         "../mapping/x.collapsed.gff || true"
 
 
-rule:
-    name: 'merge_per_sample'
+rule merge_per_sample:
     input:
         sample2bcs1,
         sample2bcs2,
@@ -328,8 +341,7 @@ rule:
         "python {params.script_dir}/merge_cells_bc.py --sample {wildcards.sample}"
 
         
-rule:
-    name: 'merge_sam_to_bam'
+rule merge_sam_to_bam:
     input:
         '{sample}/mapping/{sample}.merge.sam'
     output:
@@ -348,8 +360,7 @@ rule:
         "-o {output.sorted} > {output.sorted} && "
         "samtools index {output.sorted}"
 
-rule:
-    name: 'merge_all_samples'
+rule merge_all_samples:
     input:
         bam = expand('{sample}/mapping/{sample}.sorted.bam', sample = SAMPLES)
     output:
@@ -359,11 +370,10 @@ rule:
     threads:
         32
     shell:
-        'samtools merge {input.bam} {input.bam}'
+        'samtools merge {output} {input.bam}'
 
 
-rule:
-    name: 'collapse_isoform_final'
+rule collapse_isoform_final:
     input:
         bam = 'mapping_all_merge/merged_all.bam',
     output:
@@ -373,15 +383,14 @@ rule:
     threads:
         4
     resources:
-        mem_mb = lambda wildcards, attempt: attempt * 150000,
+        mem_mb = lambda wildcards, attempt: attempt * maxmem,
         time_min = 3000
     shell:
         "collapse_isoforms_by_sam.py -b {input.bam} "
         "-o mapping_all_merge/correct_merge "
         "-c 0.99 -i 0.95 --gen_mol_count --cpus 4"
 
-rule:
-    name: 'sqanti3_qc_final'
+rule sqanti3_qc_final:
     input:
         gff = 'mapping_all_merge/correct_merge.collapsed.gff',
         abundance = 'mapping_all_merge/correct_merge.collapsed.abundance.txt'
@@ -389,20 +398,23 @@ rule:
         'sqanti_all_merge/correct_merge.collapsed_classification.txt',
         'sqanti_all_merge/correct_merge.collapsed_corrected.fasta'
     params:
-        hg38 = f"{REF_PATH}/hg38.fa",
-        annotation = f"{REF_PATH}/gencode.v36.annotation.gtf",
-        script_dir = config['static']['bin_path']
+        hg38 = config['static']['genome'],
+        annotation = config['static']['annotation'],
+        script_dir = config['static']['bin_path'],
+        cupcake = config['specific']['cupcake']
     threads:
         16
     shell:
+        "export RSCRIPTPATH=$(which Rscript) ; "
+        "export PYTHONPATH={params.cupcake}/sequence/ ; "
+        "export PYTHONPATH=$PYTHONPATH:{params.cupcake}/ ; "
         "cd sqanti_all_merge/ && "
-        "python {params.script_dir}/SQANTI3/sqanti3_qc.py "
+        "python {params.script_dir}/SQANTI3-1.6/sqanti3_qc.py "
         "--gtf ../mapping_all_merge/correct_merge.collapsed.gff {params.annotation} {params.hg38} "
-        "--fl_count ../mapping_all_merge/correct_merge.collapsed.abundance.txt --skip_report "
+        "--fl_count ../mapping_all_merge/correct_merge.collapsed.abundance.txt --skip_report --skipORF"
 
 
-rule:
-    name: 'sqanti3_qc_filter_final'
+rule sqanti3_qc_filter_final:
     input:
         gff = 'mapping_all_merge/correct_merge.collapsed.gff',
         classification = 'sqanti_all_merge/correct_merge.collapsed_classification.txt',
@@ -411,17 +423,20 @@ rule:
         'sqanti_all_merge/correct_merge.collapsed_classification.filtered_lite_classification.txt'
     params:
         script_dir = config['static']['bin_path'],
+        cupcake = config['specific']['cupcake']
     threads:
         16
     shell:
+        "export RSCRIPTPATH=$(which Rscript) ; "
+        "export PYTHONPATH={params.cupcake}/sequence/ ; "
+        "export PYTHONPATH=$PYTHONPATH:{params.cupcake}/ ; "
         "cd sqanti_all_merge/ && "
-        "python {params.script_dir}/SQANTI3/sqanti3_RulesFilter.py "
+        "python {params.script_dir}/SQANTI3-1.6/sqanti3_RulesFilter.py "
         "correct_merge.collapsed_classification.txt "
         "correct_merge.collapsed_corrected.fasta "
-        "mapping_all_merge/correct_merge.collapsed.gff || true"
+        "../mapping_all_merge/correct_merge.collapsed.gff || true"
 
-rule:
-    name: 'AllInfo'
+rule AllInfo:
     input:
         group = 'mapping_all_merge/correct_merge.collapsed.group.txt',
         classification = 'sqanti_all_merge/correct_merge.collapsed_classification.filtered_lite_classification.txt',
@@ -435,7 +450,7 @@ rule:
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 1024
     shell:
-        "python {params.script_dir}/AllInfo_V3.py --grp {input.group} --categ {input.classification} --cell_types {input.ctypes}"
+        "python {params.script_dir}/AllInfo.py --grp {input.group} --categ {input.classification} --cell_types {input.ctypes}"
 
 
 
