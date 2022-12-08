@@ -1,7 +1,7 @@
 specific:
   sample_map: <path/to>/scIsoPrep/example_data/sample_map_retina.txt
   barcodes_dir: <path/to>/scIsoPrep/example_data/bc_to_phenotype
-  cupcake: <path/to>/scIsoPrep/scripts/SQANTI3-1.6/cDNA_Cupcake
+  sqanti: <path/to>/scIsoPrep/scripts/SQANTI3-1.6/
   workdir: <path/to>/scIsoPrep/example_data/results
   maxmem: 16000 #maximum memory for collapsing, reduce
 
