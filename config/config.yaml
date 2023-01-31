@@ -2,11 +2,12 @@ specific:
   sample_map: /cluster/work/bewi/members/dondia/projects/ovarian_cancer/snakemake/ovarian_cancer/rerun_all_samples/sample_map.tsv
   barcodes_dir: /cluster/work/bewi/members/dondia/projects/ovarian_cancer/10x_data/bc_to_phenotype/
   cupcake: /cluster/work/bewi/members/dondia/projects/ovarian_cancer/bin/cDNA_Cupcake_dev/cDNA_Cupcake/
+  workdir: <path/to>/output_files
+  maxmem: 16000 #maximum memory to allow for collapsing reads into isoforms, increase if your sample is large
 
 
 static:
   data_path: /cluster/work/bewi/members/dondia/projects/ovarian_cancer/data/links
-  ref_path: /cluster/work/bewi/members/dondia/projects/ovarian_cancer/reference
   bin_path: /cluster/work/bewi/members/dondia/projects/ovarian_cancer/bin
   adapters: lima_adapters2.fasta
   genome: hg38.fa

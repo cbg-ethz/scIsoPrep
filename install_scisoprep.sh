@@ -22,9 +22,9 @@ cd cDNA_Cupcake
 python setup.py build
 python setup.py install
 
-conda install -c bioconda snakemake
+conda install -c conda-forge mamba
+mamba install -c bioconda snakemake
 
-#conda install -n base -c conda-forge mamba
 
 
 
