@@ -10,7 +10,7 @@ scIsoPrep offers the possibility to unconcatenate, trim, demultiplex large singl
 
 # Requirements
 - Python 3.X
-- Snakemake
+- Conda
 
 # Installation
 
@@ -22,34 +22,31 @@ cd scisoprep
 ```
 
 ## Create conda environment
-First, create a new environment named "scisoprep":
+First, create a new environment named "scIsoPrep" and install all dependencies:
 ```bash
 ./install_scisoprep.sh
 ```
 
-Second, source it:
-```bash
-conda activate scisoprep
-```
+Type `yes` when asked 
 
 # Usage
 
 Before each usage, you should source the scisoprep environment:
 
 ```bash
-conda activate scisoprep
+conda activate scIsoPrep
 ```
 
 The scIsoPrep wrapper script `run_scisoprep.py` can be run with the following shell command:
 ```bash
 ./run_scIsoPrep 
 ```
-### Before running the pipeline
+## Before running the pipeline
 
 
 * **config file**
   * input directory
-    Before running the pipeline the `config.yaml` file needs to be adapted to contain the **path to input fastq files** for the intended analysis. It is provided in the first section (`specific`) of the config file.
+    Before running the pipeline, the `config/config.yaml` file needs to be adapted to contain the path to input bam files. It is provided in the first section (`specific`) of the config file.
   * resource information
     In addition to the input path, further resource information must be provided in the section `specific`. This information is primarily specifying
      the genomic reference used for the reads mapping and the transcriptomic reference required for isoform classification. An example `config.yaml` file ready for adaptation, as
@@ -73,4 +70,22 @@ The scIsoPrep wrapper script `run_scisoprep.py` can be run with the following sh
 
 
 # Example data
+
+### Downloading data
+
+Data will soon be available on Zenodo
+
+### Run
+
+Edit the `config_retina.yaml` file in the `config` folder, and change the data_path to the folders where bam input files are. Do the same for genome and annotation folder(s). 
+
+Then, edit the `run_scisoprep.py` file and change `--configfile` to `config/config_retina.yaml`.
+
+You can then run the pipeline:
+```bash
+./run_scIsoPrep 
+```
+
+It should run for less thant 2 hours on HPC, and the output file `AllInfo` should be found in the `example_data/results` folder.
+
 
