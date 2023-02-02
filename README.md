@@ -1,7 +1,7 @@
 # scIsoPrep
 A [Snakemake](https://snakemake.github.io/) pipeline for analyzing multiplexed single-cell PacBio concatenated long-reads.
 
-scIsoPrep offers the possibility to unconcatenate, trim, demultiplex large single-cell Pacbio multisample datasets using [IsoSeq3](https://isoseq.how/). It can also collapse transcripts using [cDNA_Cupcake](https://github.com/Magdoll/cDNA_Cupcake) and classify them using [SQANTI3](https://github.com/ConesaLab/SQANTI3). scIsoPrep first collapses transcripts and filter them per cell, and then repeat this step on all cells together in order to create a common isoforms catalog, using reads attached to isoforms passing all filters in individual cells. 
+scIsoPrep offers the possibility to unconcatenate, trim, demultiplex large single-cell Pacbio multisample datasets using [IsoSeq3](https://isoseq.how/). It can also collapse transcripts using [cDNA_Cupcake](https://github.com/Magdoll/cDNA_Cupcake) and classify them using [SQANTI3](https://github.com/ConesaLab/SQANTI3). scIsoPrep first collapses transcripts and filter them per cell, and then repeat this step on all cells together in order to create a common isoforms catalog, using reads attached to isoforms passing all filters in individual cells. This software is intended to be used on HPC.
 
 # Contents
 - [Installation](#Installation)
@@ -22,12 +22,12 @@ cd scisoprep
 ```
 
 ## Create conda environment
-First, create a new environment named "scIsoPrep" and install all dependencies:
+First, create a new conda environment and install all dependencies by running the following from your base conda environment:
 ```bash
 ./install_scisoprep.sh
 ```
 
-Type `yes` when asked 
+Type `yes` when asked to, this should take 15min.
 
 # Usage
 
@@ -73,7 +73,9 @@ The scIsoPrep wrapper script `run_scisoprep.py` can be run with the following sh
 
 ### Downloading data
 
-Data will soon be available on Zenodo
+Data is available on Zenodo : XXX.
+
+As the data is unconcatenated single-cell long-reads data, files should be called `retina_wXX.subreads.bam`
 
 ### Run
 
