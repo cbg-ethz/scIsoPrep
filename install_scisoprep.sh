@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 PWD=$(pwd)
 
 sed -i "s:<path/to>/scIsoPrep:$PWD:" ./config/*.yaml 
