@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e
+set -Eeuxo pipefail
 
 PWD=$(pwd)
 
