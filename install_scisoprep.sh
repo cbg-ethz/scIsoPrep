@@ -7,11 +7,10 @@ PWD=$(pwd)
 sed -i "s:<path/to>/scIsoPrep:$PWD:" ./config/*.yaml 
 
 cd scripts
-wget https://github.com/ConesaLab/SQANTI3/archive/refs/tags/v1.6.tar.gz
-tar -xvf v1.6.tar.gz
+wget https://github.com/ConesaLab/SQANTI3/archive/refs/tags/v5.1.1.tar.gz
+tar -xvf v5.1.1.tar.gz
 
-cd SQANTI3-1.6
-
+cd SQANTI3
 conda env create -f SQANTI3.conda_env.yml -n scIsoPrep
 
 conda activate scIsoPrep
@@ -26,8 +25,4 @@ python setup.py install
 
 conda install -c conda-forge mamba-1.0.0
 mamba install -c bioconda snakemake
-
-
-
-
 
