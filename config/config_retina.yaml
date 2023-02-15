@@ -1,10 +1,9 @@
 specific:
   sample_map: <path/to>/scIsoPrep/example_data/sample_map_retina.txt
   barcodes_dir: <path/to>/scIsoPrep/example_data/bc_to_phenotype
-  sqanti: <path/to>/scIsoPrep/scripts/SQANTI3-1.6/
+  sqanti: <path/to>/scIsoPrep/scripts/SQANTI3-5.1.1/
   workdir: <path/to>/scIsoPrep/example_data/results
-  maxmem: 16000 #maximum memory for collapsing, reduce
-
+  maxmem: 16000 #maximum memory for collapsing, reduce if you have limited ressources / small dataset
 
 static:
   data_path: <path/to>/data_bamfiles

@@ -288,9 +288,8 @@ rule sqanti3_qc_split:
         "export PYTHONPATH=$PYTHONPATH:{params.sqanti}/cDNA_Cupcake/ ; "
         "cd {wildcards.sample}/cells/{wildcards.barcode}_{wildcards.sample}/sqanti3_qc/ && "
         "python {params.sqanti}/sqanti3_qc.py "
-        "--gtf ../mapping/x.collapsed.gff "
-        "{params.annotation} {params.hg38} --skipORF "
-        "--fl_count ../mapping/x.collapsed.abundance.txt --skip_report  || true"
+        "../mapping/x.collapsed.gff {params.annotation} {params.hg38} --skipORF "
+        "--fl ../mapping/x.collapsed.abundance.txt --report skip  || true"
 
 rule sqanti3_qc_filter_split:
     input:
@@ -311,9 +310,8 @@ rule sqanti3_qc_filter_split:
         "export PYTHONPATH={params.sqanti}/cDNA_Cupcake/sequence/ ; "
         "export PYTHONPATH=$PYTHONPATH:{params.sqanti}/cDNA_Cupcake/ ; "
         "cd {wildcards.sample}/cells/{wildcards.barcode}_{wildcards.sample}/sqanti3_qc/ && "
-        "python {params.sqanti}/sqanti3_RulesFilter.py "
-        "x.collapsed_classification.txt x.collapsed_corrected.fasta "
-        "../mapping/x.collapsed.gff || true"
+        "python {params.script_dir}/sqanti3_RulesFilter.py x.collapsed_classification.txt x.collapsed_corrected.fasta "
+        " ../mapping/x.collapsed.gff || true"
 
 
 rule merge_per_sample:
@@ -404,8 +402,8 @@ rule sqanti3_qc_final:
         "export PYTHONPATH=$PYTHONPATH:{params.sqanti}/cDNA_Cupcake/ ; "
         "cd sqanti_all_merge/ && "
         "python {params.sqanti}/sqanti3_qc.py "
-        "--gtf ../mapping_all_merge/correct_merge.collapsed.gff {params.annotation} {params.hg38} "
-        "--fl_count ../mapping_all_merge/correct_merge.collapsed.abundance.txt --skip_report --skipORF"
+        "../mapping_all_merge/correct_merge.collapsed.gff {params.annotation} {params.hg38} "
+        "--fl ../mapping_all_merge/correct_merge.collapsed.abundance.txt --report skip --skipORF"
 
 
 rule sqanti3_qc_filter_final:
@@ -425,7 +423,7 @@ rule sqanti3_qc_filter_final:
         "export PYTHONPATH={params.sqanti}/cDNA_Cupcake/sequence/ ; "
         "export PYTHONPATH=$PYTHONPATH:{params.sqanti}/cDNA_Cupcake/ ; "
         "cd sqanti_all_merge/ && "
-        "python {params.sqanti}/sqanti3_RulesFilter.py "
+        "python {params.script_dir}/sqanti3_RulesFilter.py "
         "correct_merge.collapsed_classification.txt "
         "correct_merge.collapsed_corrected.fasta "
         "../mapping_all_merge/correct_merge.collapsed.gff || true"
@@ -445,11 +443,4 @@ rule AllInfo:
         mem_mb = lambda wildcards, attempt: attempt * 1024
     shell:
         "python {params.script_dir}/AllInfo.py --grp {input.group} --categ {input.classification} --cell_types {input.ctypes}"
-
-
-
-
-
-
-
 
