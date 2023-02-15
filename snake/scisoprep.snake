@@ -216,14 +216,14 @@ rule make_csv_for_dedup:
     output:
         "{sample}/cells/{barcode}_{sample}/dedup/dedup.info.csv"
     params:
-        sqanti = config['specific']['sqanti']
+        script_dir = config['static']['bin_path'],
     threads:
         8
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 1024
     shell:
         "cd {wildcards.sample}/cells/{wildcards.barcode}_{wildcards.sample}/dedup/ && "
-        "python {params.sqanti}/cDNA_Cupcake/singlecell/make_csv_for_dedup.py"
+        "python {params.script_dir}/make_csv_for_dedup.py"
 
 
 rule mapping_split:
