@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+mkdir -p logs
+
 bsub \
   -N \
   -R 'rusage[mem=2000]' \
@@ -9,7 +11,6 @@ snakemake \
   -s snake/scisoprep.snake \
   --configfile config/config.yaml \
   --profile ~/.config/snakemake/lsf/ \
-  --restart-times 3 \
   -pr \
   --latency-wait 30 \
   --rerun-incomplete \
