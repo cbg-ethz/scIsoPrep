@@ -11,7 +11,8 @@ wget https://github.com/ConesaLab/SQANTI3/archive/refs/tags/v5.1.1.tar.gz
 tar -xvf v5.1.1.tar.gz
 
 cd SQANTI3-5.1.1/
-sed -i 's/numpy/numpy=1.19.5/' SQANTI3.conda_env.yml 
+sed -i 's/numpy/numpy=1.19.5/' SQANTI3.conda_env.yml
+sed -i 's/>=3.7.6/=3.10.7/' SQANTI3.conda_env.yml 
 conda env create -f SQANTI3.conda_env.yml -n scIsoPrep
 
 
