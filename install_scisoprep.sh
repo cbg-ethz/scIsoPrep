@@ -27,6 +27,6 @@ python setup.py build
 SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL=True
 python setup.py install
 
-conda install -c conda-forge mamba-1.0.0
+conda install -c conda-forge mamba
 mamba install -c bioconda snakemake
 
