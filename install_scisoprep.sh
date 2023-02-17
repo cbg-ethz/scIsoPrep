@@ -4,6 +4,9 @@ set -Eeuxo pipefail
 
 PWD=$(pwd)
 
+conda install -n scIsoPrep mamba
+conda activate scIsoPrep
+
 sed -i "s:<path/to>/scIsoPrep:$PWD:" ./config/*.yaml 
 
 cd scripts
@@ -12,11 +15,7 @@ tar -xvf v5.1.1.tar.gz
 
 cd SQANTI3-5.1.1/
 sed -i 's/numpy/numpy=1.19.5/' SQANTI3.conda_env.yml
-sed -i 's/>=3.7.6/=3.10.7/' SQANTI3.conda_env.yml 
-conda env create -f SQANTI3.conda_env.yml -n scIsoPrep
-
-
-conda activate scIsoPrep
+mamba env update -n scIsoPrep --file SQANTI3.conda_env.yml --prune
 
 wget http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/gtfToGenePred -P ./utilities/
 chmod +x ./utilities/gtfToGenePred 
@@ -24,9 +23,11 @@ chmod +x ./utilities/gtfToGenePred
 git clone https://github.com/Magdoll/cDNA_Cupcake.git
 cd cDNA_Cupcake
 python setup.py build
-SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL=True
 python setup.py install
 
-conda install -c conda-forge mamba
-mamba install -c bioconda snakemake
+mamba install -c conda-forge snakemake
+
+cd ../../../
+
+snakemake -s snake/scisoprep.snake --configfile config/config_retina.yaml --cores 100 --use-conda -pr --conda-create-envs-only
 
