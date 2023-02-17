@@ -4,7 +4,7 @@ set -Eeuxo pipefail
 
 PWD=$(pwd)
 
-conda install -n scIsoPrep mamba
+conda create -n scIsoPrep mamba
 conda activate scIsoPrep
 
 sed -i "s:<path/to>/scIsoPrep:$PWD:" ./config/*.yaml 
