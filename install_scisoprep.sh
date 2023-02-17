@@ -5,7 +5,6 @@ set -Eeuxo pipefail
 PWD=$(pwd)
 
 conda create -n scIsoPrep mamba
-conda activate scIsoPrep
 
 sed -i "s:<path/to>/scIsoPrep:$PWD:" ./config/*.yaml 
 
@@ -13,9 +12,10 @@ cd scripts
 wget https://github.com/ConesaLab/SQANTI3/archive/refs/tags/v5.1.1.tar.gz
 tar -xvf v5.1.1.tar.gz
 
-cd SQANTI3-5.1.1/
-sed -i 's/numpy/numpy=1.19.5/' SQANTI3.conda_env.yml
 mamba env update -n scIsoPrep --file SQANTI3.conda_env.yml --prune
+conda activate scIsoPrep
+
+cd SQANTI3-5.1.1/
 
 wget http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/gtfToGenePred -P ./utilities/
 chmod +x ./utilities/gtfToGenePred 
