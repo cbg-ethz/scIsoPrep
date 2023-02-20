@@ -2,6 +2,9 @@
 
 set -Eeuxo pipefail
 
+CONDA_BASE=$(conda info --base)
+source ${CONDA_BASE}/etc/profile.d/conda.sh
+
 PWD=$(pwd)
 
 conda create -n scIsoPrep mamba
