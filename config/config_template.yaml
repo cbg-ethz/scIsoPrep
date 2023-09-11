@@ -1,7 +1,7 @@
 specific:
   sample_map: <path/to>/sample_map.tsv
   barcodes_dir: <path/to>/directory_containing_barcodes_to_celltype
-  cupcake: <path/to>/scIsoPrep/scripts/SQANTI3-1.6/cDNA_Cupcake
+  sqanti: <path/to>/scIsoPrep/scripts/SQANTI3-5.1.1
   workdir: <path/to>/output_files
   maxmem: 16000 #maximum memory for collapsing, reduce if your cluster has limited capacity
 

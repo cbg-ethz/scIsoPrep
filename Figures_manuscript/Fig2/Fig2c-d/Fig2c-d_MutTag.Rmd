@@ -1,0 +1,71 @@
+---
+title: "Fig2c-d_MutTag"
+output: html_document
+date: '2023-08-30'
+---
+
+```{r}
+library(Seurat)
+library(sctransform)
+library(tidyverse)
+```
+
+*cell information*
+```{r}
+filename<-"~/Documents/Projects/ovarian_cancer/data/scAmpi_out/all_merge_coldata.csv"
+temp <- read.csv(filename, row.names=1)
+
+cell_info<- data.frame(temp)
+cell_info <- cbind('barcodes' = rownames(cell_info), cell_info)
+```
+
+*pacbio - gene level*
+```{r}
+
+filename<-"~/Documents/Projects/ovarian_cancer/data/scAmpi_out/all_merge_long.csv"
+temp1 <- read.csv(filename, row.names=1)
+sc_counts_pacb <- as.matrix(temp1)
+
+pacb <- CreateSeuratObject(sc_counts_pacb, meta.data = cell_info)
+
+pacb <- SCTransform(pacb, latent_var_nonreg = c("g2m_score", "s_score", "Sample"))
+
+pacb <- RunPCA(pacb, verbose = FALSE)
+pacb <- RunUMAP(pacb, dims = 1:30, verbose = FALSE)
+pacb <- FindNeighbors(pacb, dims = 1:30, verbose = FALSE)
+pacb <- FindClusters(pacb, verbose = FALSE)
+```
+
+*add mutation info in metadata *
+```{r}
+filename<-"all_merge_coldata_mutations.csv"
+temp <- read.csv(filename, row.names=1)
+
+cell_info<- data.frame(temp)
+cell_info <- cbind('barcodes' = rownames(cell_info), cell_info)
+
+cell_info <- cell_info[order(match(cell_info[,1],colnames(pacb))),]
+mutations <-cell_info['MutTag']
+germline <-cell_info['MutTag_germline']
+
+pacb<-AddMetaData(pacb, mutations, col.name = "MutTag")
+pacb<-AddMetaData(pacb, germline, col.name = "MutTag_germline")
+```
+
+*plotting*
+```{r}
+p<- DimPlot(pacb, group.by = 'MutTag', cols=c('lightgrey','red','red'), order = TRUE) +
+  scale_color_manual(labels = c("", "",'Somatic mutation'), values = c("lightgrey", "red",'red')) +
+  theme(legend.position="none", plot.margin=unit(c(-0.5,0,0,0), "cm"), text = element_text(size = 8), axis.text = element_text(size = 8)) + 
+  ggtitle("") 
+
+ggsave(filename = "fig2d_somatic_mutations.png", plot = p, device = 'png',  width = 8, height = 8, units = "cm", dpi = 300)
+
+p<- DimPlot(pacb, group.by = 'MutTag_germline', cols=c('lightgrey','blue','blue','blue','blue'), order = TRUE) +
+  scale_color_manual(labels = c("", "","", "",'Germline variant'), values = c("lightgrey",  'blue','blue','blue','blue')) +
+  theme(legend.position="none",plot.margin=unit(c(-0.5,0,0,0), "cm"), text = element_text(size = 8), axis.text = element_text(size = 8)) + 
+  ggtitle("") 
+
+ggsave(filename = "fig2c_germline_variant.png", plot = p, device = 'png',  width = 8, height = 8, units = "cm", dpi = 300)
+
+```

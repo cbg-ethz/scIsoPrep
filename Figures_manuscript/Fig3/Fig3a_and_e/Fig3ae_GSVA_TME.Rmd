@@ -1,0 +1,188 @@
+---
+title: "Fig3ae_GSVA_TME"
+output: html_document
+date: '2023-08-30'
+---
+
+```{r}
+library(Seurat)
+library(sctransform)
+library(tidyverse)
+library(GSVA)
+library(RColorBrewer)
+library(pheatmap)
+library(gridExtra)
+```
+
+```{r}
+filename<-"all_merge_long.csv"
+temp <- read.csv(filename, row.names=1)
+sc_counts<- as.matrix(temp)
+
+filename<-"all_merge_coldata.csv"
+temp <- read.csv(filename, row.names=1)
+
+cell_info<- data.frame(temp)
+cell_info <- cbind('barcodes' = rownames(cell_info), cell_info)
+
+
+pacb <- CreateSeuratObject(sc_counts, meta.data = cell_info)
+
+pacb <- SCTransform(pacb, latent_var_nonreg = c("g2m_score", "s_score", "Sample"))
+
+pacb <- RunPCA(pacb, verbose = FALSE)
+pacb <- RunUMAP(pacb, dims = 1:30, verbose = FALSE)
+pacb <- FindNeighbors(pacb, dims = 1:30, verbose = FALSE)
+pacb <- FindClusters(pacb, verbose = FALSE)
+
+#cell_info <- cell_info[order(match(cell_info[,1],colnames(pacb))),]
+
+Idents(object = pacb) <- "Group"
+
+sub<-subset(x = pacb, idents = c("Fibroblasts.Distal","Fibroblasts.TME","Mesothelial.cells.Distal","Mesothelial.cells.TME","HGSOC"))
+```
+
+```{r}
+png <- "ExtDataFig5b.png"
+
+pacbio2 <- NormalizeData(sub) %>% FindVariableFeatures() %>% ScaleData()
+
+genesets="EMT.gmt"
+
+tmp <- readLines(genesets)
+tmp <- lapply(tmp, function(x) strsplit(x, "\\\t")[[1]])
+names(tmp) <- sapply(tmp, function(x) x[1])
+# remove gene set names from gene list
+gset <- sapply(tmp, function(x) x[-1])
+# remove gene set description from gene list
+gset <- sapply(gset, function(x) x[-1])
+names(gset) <- gsub("HALLMARK_", "", names(gset))
+
+expr <- as.matrix(pacbio2@assays$RNA@counts)
+rgsa <- gsva(expr, gset, method = "gsva")
+
+number_celltypes <- length(unique(pacbio2@meta.data$Group))
+ct.color <- c("red", "purple","red4",'yellow','orange' )
+cluster_colors <- c("red", "purple","red4",'yellow','orange' )
+annot.col <- data.frame(Cell.type = pacbio2@meta.data$Group)
+
+levels(annot.col$Cell.type) <- unique(annot.col$Cell.type)
+
+rownames(annot.col) <- rownames(pacbio2@meta.data)
+stopifnot(rownames(annot.col) == colnames(rgsa))
+
+
+# have cell types sorted to colours
+celltype_colors <- ct.color
+names(celltype_colors) <- levels(annot.col$Cell.type)
+
+# have colours for clusters and cell types together
+plotting_colors <- list(Phenograph = cluster_colors, Cell.type = celltype_colors)
+
+col.pal <- colorRampPalette(rev(brewer.pal(11, "RdBu")))(255)
+#col.pal <- hcl.colors(50, "BluYl")
+
+# have gsva results ordered by clusters
+rgsa_plotting <- rgsa[, order(annot.col$Cell.type)]
+
+# plot heatmap
+hm1 <- pheatmap(rgsa_plotting,
+               scale = "none",
+               clustering_method = "ward.D2",
+               show_colnames = F,
+               color = col.pal,
+               cluster_cols = F,
+               annotation_col = annot.col,
+               annotation_colors = plotting_colors,
+               annotation_names_col = T,
+               fontsize_row = 8)
+
+ggsave(png, hm1$gtable,
+       width = 20, height = 6, units = "cm", dpi = 300)
+```
+
+```{r}
+#col.pal <- rev(hcl.colors(50, "RdBu"))
+#col.pal <- colorRampPalette(brewer.pal(2, "PuRd"))(100)
+#col.pal <-colorRampPalette(c("#800080", "#F7F4F9", "#FF00FF"))(255)
+hm1 <- pheatmap(rgsa_plotting,
+               scale = "none",
+               clustering_method = "ward.D2",
+               show_colnames = F,
+               color = col.pal,
+               cluster_cols = F,
+               annotation_col = annot.col,
+               annotation_colors = plotting_colors,
+               annotation_names_col = T,
+               fontsize_row = 8)
+
+ggsave(png, hm1$gtable,
+       width = 20, height = 8, units = "cm", dpi = 600)
+```
+
+```{r}
+df <- t(rgsa_plotting)
+df <- cbind('barcodes' = rownames(df), df)
+
+cell_info<- data.frame(temp)
+cell_info <- cbind('barcodes' = rownames(cell_info), cell_info)
+cell_info <- cell_info[order(match(cell_info[,1],colnames(pacb))),]
+zz <- merge(cell_info, df, all = TRUE)
+zz[is.na(zz)] <- 0
+rownames(zz) <- zz[,'barcodes']
+```
+
+*mapping results to seurat*
+```{r}
+zz["EPITHELIAL_MESENCHYMAL_TRANSITION"] <- sapply(zz["EPITHELIAL_MESENCHYMAL_TRANSITION"], as.numeric)
+pacb<-AddMetaData(pacb, zz["EPITHELIAL_MESENCHYMAL_TRANSITION"], col.name = "EPITHELIAL_MESENCHYMAL_TRANSITION")
+
+umap <- as.data.frame(Embeddings(pacb, reduction = "umap"))
+FeaturePlot(object = pacb, features = "EPITHELIAL_MESENCHYMAL_TRANSITION",keep.scale="all") + scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu")))
+
+umap <- umap[umap$UMAP_2>-5 & umap$UMAP_1 <0,]
+sub <- subset(pacb, cells = rownames(umap))
+```
+
+*fig3a*
+```{r}
+p1 <- FeaturePlot(object = sub, features = "EPITHELIAL_MESENCHYMAL_TRANSITION", order = TRUE) + scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu"))) + theme( plot.margin = margin(-2,-2,0,0, "cm"), legend.key.size = unit(.3, 'cm'), legend.position = c(0.3, 0.33),  legend.justification = c("right", "top"), legend.box.just = "right") +  ggtitle("") + ylab('') + xlab('Long-read UMAP -\nEMT Pathway Expression') + xlim(-9.8,-2.2) + ylim(-3.5,12.2) +
+  annotate("text", x=-3.7, y=-3.1, label= "HGSOC") +
+  annotate("text", x=-7.5, y=1.8, label= "Mesothelial cells") +
+  annotate("text", x=-8, y=11, label= "Fibroblasts")
+
+p2 <- DimPlot(sub, group.by = 'Tissue', cols = c("#94C773", "#8F79A1"), order=c('Metastasis biopsy')) + 
+  theme(plot.margin = margin(-2,0,0,0, "cm"),legend.position = c(0.0, 0.11), legend.key.size = unit(.4, 'cm')) + 
+  xlim(-9.8,-2.2) + ylim(-3.5,12.2) +
+  ggtitle("") + ylab('') + xlab('Long-read UMAP -\nZoom on tissue cells') +
+  annotate("text", x=-3.7, y=-3.1, label= "HGSOC") +
+  annotate("text", x=-7.5, y=1.8, label= "Mesothelial cells") +
+  annotate("text", x=-8, y=11, label= "Fibroblasts") +
+  scale_color_manual(labels=c("Distal","Metastasis"),
+                       values=c("#94C773", "#8F79A1"))
+
+p<-ggarrange(p2, p1, ncol = 2, widths = c(1,1), common.legend = FALSE) + theme(plot.margin = margin(0.5,0.6,0.5,0.5, "cm"))
+
+ggsave(filename = "Fig3a_EMT_umap_horizontal.png", plot = p, device = 'png',  width = 16, height = 10, units = "cm", dpi = 300)
+
+```
+
+*fig3e*
+```{r}
+zz["miR-29 targets"] <- sapply(zz["miR-29 targets"], as.numeric)
+pacb<-AddMetaData(pacb, zz["miR-29 targets"], col.name = "mir29_targets")
+
+umap <- as.data.frame(Embeddings(pacb, reduction = "umap"))
+
+umap <- umap[umap$UMAP_2>-5 & umap$UMAP_1 <0,]
+sub <- subset(pacb, cells = rownames(umap))
+
+p<- FeaturePlot(object = sub, features = "mir29_targets",keep.scale="all", order = TRUE) + scale_colour_gradientn(colours = rev(brewer.pal(n = 11, name = "RdBu"))) + theme( plot.margin = margin(-2,-2,0,0, "cm"), legend.key.size = unit(.3, 'cm'), legend.position = c(0.3, 0.33),  legend.justification = c("right", "top"), legend.box.just = "right") +  ggtitle("") + ylab('') + xlab('miR-29 Targets Expression') + xlim(-9.8,-2.2) + ylim(-3.5,12.2) +
+  annotate("text", x=-3.7, y=-3.1, label= "HGSOC") +
+  annotate("text", x=-7.5, y=1.8, label= "Mesothelial cells") +
+  annotate("text", x=-8, y=11, label= "Fibroblasts")
+
+p<-ggarrange(p, p, ncol = 2, widths = c(1,1), common.legend = FALSE) + theme(plot.margin = margin(0.5,0.6,0.5,0.5, "cm"))
+
+ggsave(filename = "Fig3e_umap.png", plot = p, device = 'png',  width = 16, height = 10, units = "cm", dpi = 300)
+```

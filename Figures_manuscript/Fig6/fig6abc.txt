@@ -1,0 +1,3 @@
+fig 6a -> gel picture
+fig 6b -> scicone output (https://github.com/cbg-ethz/SCICoNE)
+fig 6c -> IGV view

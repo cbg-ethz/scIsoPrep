@@ -1,0 +1,2 @@
+fig 3c -> IGV view of 3'UTR coverage per celltype
+fig 3f -> ScisorWiz vizualisation of COL1A1 (https://github.com/ans4013/ScisorWiz/tree/master)

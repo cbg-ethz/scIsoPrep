@@ -1,0 +1,674 @@
+---
+title: "umap_all.Rmd"
+author: "Arthur DONDI"
+date: "9/30/2019"
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
+---
+
+```{r}
+library(Seurat)
+library(sctransform)
+library(tidyverse)
+library(VennDiagram)
+library(RColorBrewer)
+```
+
+```{r}
+
+filename<-"~/Documents/Projects/ovarian_cancer/data/scAmpi_out/all_merge_short.csv"
+temp <- read.csv(filename, row.names=1)
+sc_counts<- as.matrix(temp)
+
+filename<-"~/Documents/Projects/ovarian_cancer/data/scAmpi_out/all_merge_coldata.csv"
+temp <- read.csv(filename, row.names=1)
+
+cell_info<- data.frame(temp)
+cell_info <- cbind('barcodes' = rownames(cell_info), cell_info)
+
+
+tenx <- CreateSeuratObject(sc_counts, meta.data = cell_info)
+
+tenx <- SCTransform(tenx, latent_var_nonreg = c("g2m_score", "s_score", "Sample"))
+tenx <- RunPCA(tenx, verbose = FALSE)
+tenx <- RunUMAP(tenx, dims = 1:30, verbose = FALSE)
+tenx<- FindNeighbors(tenx, dims = 1:30, verbose = FALSE)
+tenx <- FindClusters(tenx, verbose = FALSE)
+```
+
+```{r}
+DimPlot(tenx, label = TRUE) + NoLegend()
+```
+
+```{r}
+DimPlot(tenx, group.by = 'Sample')
+```
+
+```{r}
+p<-DimPlot(tenx, group.by = 'celltype_major', cols = c("green", "pink", "orange","purple",'red','brown','blue' ))
+
+ggsave(filename = "/Users/dondia/Documents/Projects/ovarian_cancer/data/scAmpi_out/pacb_umap.png", plot = p, device = png,  width = 25, height = 20, units = "cm", dpi = 300)
+```
+```{r}
+DimPlot(tenx, group.by = 'Sample')
+```
+
+```{r}
+features <- c('CD3E','CD79A','THY1','LYZ','CD68','EPCAM','PAX8','ITLN1')
+
+p<-VlnPlot(pacb, features = features)
+
+p
+ggsave(filename = "/Users/dondia/Documents/Projects/ovarian_cancer/Figures/S2/pannel_vln_pacb.png", plot = p, device = 'png',  width = 40, height = 10, units = "cm", dpi = 300)
+```
+
+```{r}
+p<- VlnPlot(object = pacb,features = features, group.by = 'celltype_major')
+ggsave(filename = "/Users/dondia/Documents/Projects/ovarian_cancer/Figures/S2/pannel_vln_pacb.png", plot = p, device = 'png',  width = 40, height = 20, units = "cm", dpi = 300)
+```
+
+
+*pacbio*
+
+```{r}
+
+filename<-"~/Documents/Projects/ovarian_cancer/data/scAmpi_out/all_merge_long.csv"
+temp <- read.csv(filename, row.names=1)
+sc_counts<- as.matrix(temp)
+
+filename<-"~/Documents/Projects/ovarian_cancer/data/scAmpi_out/all_merge_coldata.csv"
+temp <- read.csv(filename, row.names=1)
+
+cell_info<- data.frame(temp)
+cell_info <- cbind('barcodes' = rownames(cell_info), cell_info)
+
+
+pacb <- CreateSeuratObject(sc_counts, meta.data = cell_info)
+
+pacb <- SCTransform(pacb, latent_var_nonreg = c("g2m_score", "s_score", "Sample"))
+
+pacb <- RunPCA(pacb, verbose = FALSE)
+pacb <- RunUMAP(pacb, dims = 1:30, verbose = FALSE)
+pacb <- FindNeighbors(pacb, dims = 1:30, verbose = FALSE)
+pacb <- FindClusters(pacb, verbose = FALSE)
+```
+
+```{r}
+FeaturePlot(object = pacb, features = "IGF2", order = T)
+```
+
+```{r}
+DimPlot(pacb, group.by = 'CellTyping.R')
+```
+
+```{r}
+p<-DimPlot(pacb, group.by = 'celltype_major', cols = c("green", "pink", "orange","purple",'red','brown','blue' ))
+
+ggsave(filename = "/Users/dondia/Documents/Projects/ovarian_cancer/Figures/Fig2/pacb_umap.png", plot = p, device = 'png',  width = 25, height = 20, units = "cm", dpi = 300)
+```
+
+```{r}
+FeaturePlot(object = pacb, features = "VAMP5")
+```
+
+
+
+```{r}
+#library(tidyverse)
+#DimPlot(tcells, group.by = 'fractionMT')
+p <- FeaturePlot(object = pacb, features = c("IGF1"
+
+ggsave(filename = "/Users/dondia/Documents/Projects/ovarian_cancer/data/IGF1_gene.png", plot = p, device = png,  width = 60, height = 20, units = "cm", dpi = 1000)
+
+```
+
+
+*Venn Diag genes*
+```{r}
+library(VennDiagram)
+Genes_10X <- rownames(tenx)
+Genes_PacBio <- rownames(pacb)
+
+venn.diagram(
+  x = list(Genes_10X, Genes_PacBio),
+  category.names = c("Short-read" , "Long-read"),
+  filename = '~/Documents/Projects/ovarian_cancer/Figures/S1/genes_venn_diagramm_correct_colors.png',
+  lty = rep("solid", 2),
+  lwd = c(2,2),
+  col= c("black", "black"),
+  fill = c(alpha('#00BFC4',0.5), alpha("#F8766D",0.5)),
+  margin = 0.04,
+  
+  # Output features
+  imagetype="png" ,
+  height = 1800 , 
+  width = 1800 , 
+  resolution = 300,
+  
+  cat.just=list(c(0.3,0) , c(0.7,0)),
+  
+  # Numbers
+  cex = 3,
+  fontfamily = "sans",
+  
+  # Set names
+  cat.cex = 3,
+  cat.default.pos = "outer",
+  cat.fontfamily = "sans",
+
+  output=TRUE
+)
+
+```
+
+
+
+```{r}
+VlnPlot(tenx, features = c("log_umi", "n_gene"), ncol = 2, group.by = 'celltype_major')
+```
+
+
+
+```{r}
+VlnPlot(pacb, features = c("log_umi", "n_gene", "fractionMT"), ncol = 3, group.by = 'celltype_major')
+
+```
+
+
+```{r}
+
+filename<-"~/Documents/Projects/ovarian_cancer/data/scAmpi_out/all_merge_long_isoforms.csv"
+temp <- read.csv(filename, row.names=1)
+sc_counts<- as.matrix(temp)
+
+filename<-"~/Documents/Projects/ovarian_cancer/data/scAmpi_out/all_merge_coldata.csv"
+temp <- read.csv(filename, row.names=1)
+```
+
+```{r}
+cell_info<- data.frame(temp)
+cell_info <- cbind('barcodes' = rownames(cell_info), cell_info)
+iso <- CreateSeuratObject(sc_counts, meta.data = cell_info)
+iso <- SCTransform(iso, latent_var_nonreg = c("g2m_score", "s_score", "Sample"), variable.features.n = 10000)
+
+```
+
+
+```{r}
+iso <- RunPCA(iso, verbose = FALSE)
+iso <- RunUMAP(iso, dims = 1:30, verbose = FALSE)
+iso<- FindNeighbors(iso, dims = 1:30, verbose = FALSE)
+iso <- FindClusters(iso, verbose = FALSE)
+```
+```{r}
+DimPlot(iso, group.by = 'celltype_major', cols = c("green", "pink", "orange","purple",'red','brown','blue' ))
+```
+
+```{r}
+FeaturePlot(object = iso, features = c('IGF1', 'Exon1','Exon2'), order = TRUE, max.cutoff = 10, combine = T)
+p <- FeaturePlot(object = iso, features = "Exon1", order = TRUE, max.cutoff = 10)
+ggsave(filename = "/Users/dondia/Documents/Projects/ovarian_cancer/Figures/Fig3/exon1_igf1.png", plot = p, device = png,  width = 15, height = 12, units = "cm", dpi = 1000)
+```
+
+```{r}
+p<-FeaturePlot(object = iso, features = c("Exon1","Exon2"), order = TRUE, blend = TRUE, max.cutoff = 10, blend.threshold=0.2)
+
+p
+
+ggsave(filename = "/Users/dondia/Documents/Projects/ovarian_cancer/Figures/Fig3/blend_IGF1.png", plot = p, device = png,  width = 30, height = 12, units = "cm", dpi = 1000)
+```
+
+
+```{r}
+FeaturePlot(object = iso, features = c("Exon2", order = TRUE, max.cutoff = 10)
+p <- FeaturePlot(object = iso, features = "Exon2", order = TRUE, max.cutoff = 10)
+ggsave(filename = "/Users/dondia/Documents/Projects/ovarian_cancer/Figures/Fig3/exon2_igf1.png", plot = p, device = png,  width = 15, height = 12, units = "cm", dpi = 2000)
+```
+```{r}
+FeaturePlot(object = iso, features = c("IGF1"), order = TRUE, max.cutoff = 25)
+
+p <- FeaturePlot(object = iso, features = c("IGF1"), order = TRUE, max.cutoff = 25)
+ggsave(filename = "/Users/dondia/Documents/Projects/ovarian_cancer/Figures/Fig3/gene_expr_igf1.png", plot = p, device = png,  width = 15, height = 12, units = "cm", dpi = 1000)
+```
+
+```{r,mutations}
+DimPlot(object = iso, group.by = c("MutTag"), cols = c('grey',"#A3A500","#00BF7D"), order = TRUE)
+DimPlot(object = iso, group.by = c("MutTag_germline"), cols = c('grey',"#F8766D","#A3A500","#00B0F6","#E76BF3"),order = TRUE)
+```
+
+```{r}
+FeaturePlot(object = iso, features = "VAMP5", order = TRUE, max.cutoff = 5)
+```
+
+```{r,GSN}
+FeaturePlot(object = iso, features = "GSNiso1", order = TRUE, max.cutoff = 5)
+FeaturePlot(object = iso, features = "GSNiso2", order = TRUE, max.cutoff = 10)
+FeaturePlot(object = iso, features = "GSN", order = TRUE, max.cutoff = 50)
+DimPlot(iso, group.by = 'Sample')
+```
+
+```{r,GSN}
+#FeaturePlot(object = iso, features = "COL1A1", order = TRUE, max.cutoff = 50)
+p<-FeaturePlot(object = iso, features = c("pGSN","cGSN"), order = TRUE, blend = TRUE, max.cutoff = 5, blend.threshold=0.5)
+#cols = c("lightgrey", "#FF00FF","yellow")
+p
+
+ggsave(filename = "/Users/dondia/Documents/Projects/ovarian_cancer/Figures/Fig3/blend_GSN.png", plot = p,  width = 30, height = 12, units = "cm", dpi = 1000)
+```
+
+```{r}
+p<-DimPlot(object = iso, group.by ="Tissue", cols= c("blue","red"))
+p
+ggsave(filename = "/Users/dondia/Documents/Projects/ovarian_cancer/Figures/Fig3/distal.metastasis.annot.iso.png", plot = p, device = png,  width = 25, height = 15, units = "cm", dpi = 1000)
+p<-DimPlot(object = tenx, group.by ="Tissue", cols= c("blue","red"))
+p
+ggsave(filename = "/Users/dondia/Documents/Projects/ovarian_cancer/Figures/Fig3/distal.metastasis.annot.short.png", plot = p, device = png,  width = 25, height = 15, units = "cm", dpi = 1000)
+p<-DimPlot(object = pacb, group.by ="Tissue", cols= c("blue","red"))
+p
+ggsave(filename = "/Users/dondia/Documents/Projects/ovarian_cancer/Figures/Fig3/distal.metastasis.annot.long.png", plot = p, device = png,  width = 25, height = 15, units = "cm", dpi = 1000)
+```
+
+```{r}
+DimPlot(object = tenx, group.by ="Group", cols= c("darkgreen","green","#FF00FF",'pink','orange','yellow',"purple",'#CC0000', '#FF0000','#660000','#c77979','blue','lightblue' ))
+```
+```{r}
+DimPlot(object = pacb, group.by ="Group", cols= c("darkgreen","green","#FF00FF",'pink','orange','yellow',"purple",'#CC0000', '#FF0000','#660000','#c77979','blue','lightblue' ))
+```
+
+
+
+```{r}
+p<-DimPlot(iso, group.by = 'celltype_major', cols = c("green", "pink", "orange","purple",'red','brown','blue' ))
+
+ggsave(filename = "/Users/dondia/Documents/Projects/ovarian_cancer/data/scAmpi_out/isoforms_pacb_umap.png", plot = p, device = png,  width = 25, height = 20, units = "cm", dpi = 300)
+```
+
+
+```{r}
+FeaturePlot(object = iso, features = "fractionMT")
+```
+
+
+
+```{r}
+DimPlot(object = iso, group.by = 'celltype_final')
+```
+
+
+
+
+*B AND t.cells*
+```{r}
+filename<-"/Users/dondia/Documents/Projects/ovarian_cancer/data/10x_singlecellexperiment/PacB_B_T.cells_all_samples.csv"
+temp <- read.csv(filename, row.names=1)
+sc_counts<- as.matrix(temp)
+
+#filename<-"/Users/dondia/Documents/Projects/ovarian_cancer/data/10x_singlecellexperiment/T.cells_all_samples_colData.csv"
+filename<-"/Users/dondia/Documents/Projects/ovarian_cancer/data/10x_singlecellexperiment/B_T.cells_colData_CD45.csv"
+temp <- read.csv(filename, row.names=1)
+cell_info<- data.frame(temp)
+```
+
+
+```{r}
+tcells <- CreateSeuratObject(sc_counts, meta.data = cell_info)
+tcells <- SCTransform(tcells, vars.to.regress = 'fractionMT', latent_var_nonreg = c("g2m_score", "s_score", "sample"))
+```
+
+```{r}
+tcells <- RunPCA(tcells, verbose = FALSE)
+tcells <- RunUMAP(tcells, dims = 1:30, verbose = FALSE)
+tcells<- FindNeighbors(tcells, dims = 1:30, verbose = FALSE)
+tcells <- FindClusters(tcells, verbose = FALSE)
+```
+
+```{r}
+DimPlot(tcells, label = TRUE) + NoLegend()
+```
+
+
+```{r}
+DimPlot(tcells, group.by = 'sample')
+```
+
+```{r}
+DimPlot(tcells, group.by = 'celltype_final', cols = c('lightgreen', 'pink',"green", "darkgreen", "black", "orange","purple",'yellow','red','brown','blue','black','cyan','darkblue' ))
+```
+
+```{r}
+#DimPlot(tcells, group.by = 'fractionMT')
+FeaturePlot(object = tcells, features = "RO")
+```
+```{r}
+#DimPlot(tcells, group.by = 'fractionMT')
+FeaturePlot(object = tcells, features = "RA")
+```
+
+```{r}
+#DimPlot(tcells, group.by = 'fractionMT')
+FeaturePlot(object = tcells, features = "RAB")
+```
+
+```{r}
+#DimPlot(tcells, group.by = 'fractionMT')
+FeaturePlot(object = tcells, features = "RBC")
+```
+
+```{r}
+
+filename<-"/Users/dondia/Documents/Projects/ovarian_cancer/data/10x_singlecellexperiment/transcript_count.csv"
+temp <- read.csv(filename, row.names=1)
+sc_counts<- as.matrix(temp)
+
+```
+
+```{r}
+filename<-"/Users/dondia/Documents/Projects/ovarian_cancer/data/10x_singlecellexperiment/colData_isoforms_class.csv"
+temp <- read.csv(filename, row.names=2)
+cell_info<- data.frame(temp)
+
+```
+
+```{r}
+
+tenx <- CreateSeuratObject(sc_counts, meta.data = cell_info)
+tenx <- SCTransform(tenx, latent_var_nonreg = c("g2m_score", "s_score", "sample"), n_genes = 10000)
+
+```
+
+
+```{r}
+tenx <- RunPCA(tenx, verbose = FALSE)
+tenx <- RunUMAP(tenx, dims = 1:30, verbose = FALSE)
+tenx<- FindNeighbors(tenx, dims = 1:30, verbose = FALSE)
+tenx <- FindClusters(tenx, verbose = FALSE)
+```
+
+```{r}
+DimPlot(tenx, label = TRUE) + NoLegend()
+```
+
+```{r}
+#DimPlot(tenx, group.by = 'sample')
+```
+
+```{r}
+DimPlot(tenx, group.by = 'celltype_major', cols = c("green", "pink", "pink", "orange","purple",'yellow','red','brown','blue','black','black' ))
+```
+
+```{r}
+#p <- FeaturePlot(object = tenx, features = c('PB.7459.8', 'PB.7459.7'), max.cutoff = 10)
+#p <- FeaturePlot(object = tenx, features = c('PB.7459.8', 'PB.7459.7'))
+p <- FeaturePlot(object = tenx, features = c('PB.30244.4','PB.30244.5'),order = TRUE, max.cutoff = 50)
+
+#p <- FeaturePlot(object = tenx, features = c('OBSL1'), max.cutoff = 5)
+#p <- FeaturePlot(object = tenx, features = c('PB.18193.45','PB.18193.87'),order = TRUE, max.cutoff = 50)
+
+
+ggsave(filename = "/Users/dondia/Documents/Projects/ovarian_cancer/data/TPM2_gene", plot = p, device = png,  width = 30, height = 15, units = "cm", dpi = 1000)
+```
+
+```{r}
+gene <- 'DUT'
+isoforms <- c('PB.10011.14','PB.10011.2')
+
+p <- FeaturePlot(object = tenx, features = isoforms,order = TRUE, max.cutoff = 'q95')
+ggsave(filename = paste("/Users/dondia/Documents/Projects/ovarian_cancer/data/",gene,'_isoforms.png',sep=''), plot = p, device = png,  width = 30, height = 15, units = "cm", dpi = 1000)
+
+p <- FeaturePlot(object = tenx, features = gene,order = TRUE, max.cutoff = 5)
+ggsave(filename = paste("/Users/dondia/Documents/Projects/ovarian_cancer/data/",gene,'_gene.png', sep=''), plot = p, device = png,  width = 15, height = 15, units = "cm", dpi = 1000)
+
+```
+
+
+```{r}
+FeaturePlot(object = tenx, features = "log_umi")
+```
+
+```{r}
+FeaturePlot(object = tenx, features = "fractionMT")
+```
+
+
+```{r}
+
+filename<-"/Users/dondia/Documents/Projects/ovarian_cancer/data/10x_singlecellexperiment/transcripts_T.cells_all_samples.csv"
+temp <- read.csv(filename, row.names=1)
+sc_counts<- as.matrix(temp)
+
+```
+
+```{r}
+filename<-"/Users/dondia/Documents/Projects/ovarian_cancer/data/10x_singlecellexperiment/B_T.cells_all_samples_colData.csv"
+temp <- read.csv(filename, row.names=2)
+cell_info<- data.frame(temp)
+
+```
+
+```{r}
+
+t_cells <- CreateSeuratObject(sc_counts, meta.data = cell_info)
+t_cells <- SCTransform(t_cells, latent_var_nonreg = c("g2m_score", "s_score", "sample"), n_genes = 10000)
+
+```
+
+```{r}
+t_cells <- RunPCA(t_cells, verbose = FALSE)
+t_cells <- RunUMAP(t_cells, dims = 1:30, verbose = FALSE)
+t_cells<- FindNeighbors(t_cells, dims = 1:30, verbose = FALSE)
+t_cells <- FindClusters(t_cells, verbose = FALSE)
+```
+
+```{r}
+DimPlot(t_cells, group.by = 'sample')
+```
+
+
+
+```{r}
+DimPlot(t_cells, group.by = 'celltype_final', cols = c('magenta', 'magenta',"green", "darkgreen", "black", "orange","purple",'yellow','red','brown','blue','orange3','lightblue','blue','cyan','limegreen','brown','lightgreen' ))
+```
+
+```{r}
+FeaturePlot(object = t_cells, features = "log_umi")
+```
+
+
+```{r}
+
+filename<-"/Users/dondia/Documents/Projects/ovarian_cancer/data/10x_singlecellexperiment/PacB_B_T.cells_all_samples.csv"
+temp <- read.csv(filename, row.names=1)
+sc_counts<- as.matrix(temp)
+
+```
+
+```{r}
+filename<-"/Users/dondia/Documents/Projects/ovarian_cancer/data/10x_singlecellexperiment/B_T.cells_all_samples_colData.csv"
+temp <- read.csv(filename, row.names=1)
+cell_info<- data.frame(temp)
+
+```
+
+```{r}
+
+t_cells_g <- CreateSeuratObject(sc_counts, meta.data = cell_info)
+t_cells_g <- SCTransform(t_cells_g, latent_var_nonreg = c("g2m_score", "s_score", "sample"), n_genes = 2000)
+
+```
+
+```{r}
+t_cells_g <- RunPCA(t_cells_g, verbose = FALSE)
+t_cells_g <- RunUMAP(t_cells_g, dims = 1:30, verbose = FALSE)
+t_cells_g<- FindNeighbors(t_cells_g, dims = 1:30, verbose = FALSE)
+t_cells_g <- FindClusters(t_cells_g, verbose = FALSE)
+```
+
+```{r}
+DimPlot(t_cells_g, group.by = 'sample')
+```
+```{r}
+DimPlot(t_cells_g, group.by = 'celltype_final', cols = c('magenta', 'magenta',"green", "darkgreen", "black", "orange","purple",'yellow','red','brown','blue','orange3','lightblue','blue','cyan','limegreen','brown','lightgreen' ))
+```
+
+```{r}
+
+filename<-"/Users/dondia/Documents/Projects/ovarian_cancer/data/10x_singlecellexperiment/transcript_count.csv"
+temp <- read.csv(filename, row.names=1)
+sc_counts<- as.matrix(temp)
+
+```
+
+```{r}
+filename<-"/Users/dondia/Documents/Projects/ovarian_cancer/data/10x_singlecellexperiment/colData_isoforms2.csv"
+temp <- read.csv(filename, row.names=2)
+cell_info<- data.frame(temp)
+
+```
+
+```{r}
+
+tenx <- CreateSeuratObject(sc_counts, meta.data = cell_info)
+tenx <- SCTransform(tenx, latent_var_nonreg = c("g2m_score", "s_score", "sample"), n_genes = 10000)
+
+```
+
+```{r}
+DimPlot(tenx, group.by = 'sample')
+```
+```{r}
+DimPlot(tenx, group.by = 'celltype_major', cols = c("green", "pink", "pink", "orange","purple",'yellow','red','brown','blue','black','black' ))
+```
+
+```{r}
+FeaturePlot(object = tenx, features = "iso_norm")
+```
+
+```{r}
+FeaturePlot(object = tenx, features = "log_umi")
+```
+
+```{r}
+FeaturePlot(object = tenx, features = "log_iso")
+```
+
+
+
+
+*B497_Fusion*
+```{r}
+filename<-"/Users/dondia/Documents/Projects/ovarian_cancer/data/10x_singlecellexperiment/PacB_B497_Tum_HGSOC.csv"
+temp <- read.csv(filename, row.names=1)
+sc_counts<- as.matrix(temp)
+
+#filename<-"/Users/dondia/Documents/Projects/ovarian_cancer/data/10x_singlecellexperiment/T.cells_all_samples_colData.csv"
+filename<-"/Users/dondia/Documents/Projects/ovarian_cancer/data/10x_singlecellexperiment/PacB_B497_Tum_colData_fusion_info.csv"
+temp <- read.csv(filename, row.names=1)
+cell_info<- data.frame(temp)
+```
+
+
+```{r}
+tcells <- CreateSeuratObject(sc_counts, meta.data = cell_info)
+#tcells <- SCTransform(tcells, vars.to.regress = 'fractionMT', latent_var_nonreg = c("g2m_score", "s_score"))
+tcells <- SCTransform(tcells, vars.to.regress = 'g2m_score')
+```
+
+```{r}
+tcells <- RunPCA(tcells, verbose = FALSE)
+tcells <- RunUMAP(tcells, dims = 1:30, verbose = FALSE)
+tcells<- FindNeighbors(tcells, dims = 1:30, verbose = FALSE)
+tcells <- FindClusters(tcells, verbose = FALSE)
+```
+
+```{r}
+DimPlot(tcells, label = TRUE) + NoLegend()
+```
+
+
+```{r}
+DimPlot(tcells, group.by = 'is_fusion')
+```
+```{r}
+FeaturePlot(object = tcells, features = "log_umi")
+```
+
+```{r}
+library(tidyverse) 
+mean_iso <- cell_info %>% group_by(is_fusion) #%>% summarize(average_iso=mean(log_umi))
+
+
+
+```
+
+
+```{r}
+library(tidyverse) 
+cell_info %>% 
+  ggplot(., aes(x = is_fusion, y = log_umi, fill = is_fusion)) + 
+    geom_boxplot(draw_quantiles = 0.5)
+
+```
+
+
+```{r}
+
+Idents(object = iso) <- "Group"
+
+sub<-subset(x = iso, idents = c("Fibroblasts.Distal","Fibroblasts.TME"))
+
+DimPlot(object = sub, group.by = "Group")
+                                 #"T.NK.cells.Distal","T.NK.cells.TME","Myeloid.cells.Distal","Myeloid.cells.TME"))
+
+```
+
+
+```{r}
+filename <- '/Users/dondia/Documents/Projects/ovarian_cancer/data/fusions/barcodes_fusion'
+temp <- read.csv(filename)
+
+cellnames<- data.frame(temp)
+
+DimPlot(object = iso, cells.highlight = cellnames$final_BC, cols.highlight = "red", cols = "gray", order = TRUE)
+
+
+```
+
+
+```{r}
+#FeaturePlot(object = pacb, features = "IGF1.ClassI",order = TRUE)
+#FeaturePlot(object = pacb, features = "IGF1.ClassII",order = TRUE)
+#FeaturePlot(object = pacb, features = "IGF1",order = TRUE)
+
+FeaturePlot(object = iso, features = c('ClassI','ClassII', 'IGF1.Expression'), order = TRUE, max.cutoff = 10)
+```
+
+
+```{r}
+p1 <- FeaturePlot(object = pacb, features = c('ClassI'), order = TRUE, 
+            max.cutoff = 10,
+            cols = c('lightgrey',"#800080"))
+ggsave(filename = "/Users/dondia/Documents/Projects/ovarian_cancer/Figures/Fig3/ClassI_umap.png", plot = p1, device = png,  width = 10, height = 8, units = "cm", dpi = 300)
+
+p2 <- FeaturePlot(object = pacb, features = c('ClassII'), order = TRUE, 
+            max.cutoff = 10,
+            cols = c('lightgrey',"#FF00FF"))
+ggsave(filename = "/Users/dondia/Documents/Projects/ovarian_cancer/Figures/Fig3/ClassII_umap.png", plot = p2, device = png,  width = 10, height = 8, units = "cm", dpi = 300)
+
+p3 <- FeaturePlot(object = pacb, features = c('IGF1.Expression'), order = TRUE, 
+            max.cutoff = 10)
+ggsave(filename = "/Users/dondia/Documents/Projects/ovarian_cancer/Figures/Fig3/IGF1_umap.png", plot = p3, device = png,  width = 10, height = 8, units = "cm", dpi = 300)
+
+
+
+
+```
+
+```{r}
+FeaturePlot(object = iso, features = "nFeature_SCT",  order = T)
+```
+
+```{r}
+FeaturePlot(object = pacb, features = "n_umi", max.cutoff = 40000, order = T)
+```

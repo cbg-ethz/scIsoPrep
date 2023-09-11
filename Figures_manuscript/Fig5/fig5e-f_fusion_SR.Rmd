@@ -1,0 +1,191 @@
+---
+title: "IGF2BP2-TESPA1 expression"
+output: html_document
+date: '2022-06-21'
+---
+
+*cell information*
+```{r}
+filename<-"all_merge_coldata.csv"
+temp <- read.csv(filename, row.names=1)
+
+cell_info<- data.frame(temp)
+cell_info <- cbind('barcodes' = rownames(cell_info), cell_info)
+```
+
+*illumina - gene level*
+```{r}
+
+filename<-"all_merge_short.csv" #gene-cell matrix
+temp <- read.csv(filename, row.names=1)
+sc_counts<- as.matrix(temp)
+
+
+
+tenx <- CreateSeuratObject(sc_counts, meta.data = cell_info)
+
+tenx <- SCTransform(tenx, latent_var_nonreg = c("g2m_score", "s_score", "Sample"))
+tenx <- RunPCA(tenx, verbose = FALSE)
+tenx <- RunUMAP(tenx, dims = 1:30, verbose = FALSE)
+tenx<- FindNeighbors(tenx, dims = 1:30, verbose = FALSE)
+tenx <- FindClusters(tenx, verbose = FALSE)
+```
+
+*pacbio - gene level*
+```{r}
+
+filename<-"all_merge_long.csv"
+temp1 <- read.csv(filename, row.names=1)
+sc_counts_pacb <- as.matrix(temp1)
+
+pacb <- CreateSeuratObject(sc_counts_pacb, meta.data = cell_info)
+
+pacb <- SCTransform(pacb, latent_var_nonreg = c("g2m_score", "s_score", "Sample"))
+
+pacb <- RunPCA(pacb, verbose = FALSE)
+pacb <- RunUMAP(pacb, dims = 1:30, verbose = FALSE)
+pacb <- FindNeighbors(pacb, dims = 1:30, verbose = FALSE)
+pacb <- FindClusters(pacb, verbose = FALSE)
+```
+
+```{r}
+DefaultAssay(pacb) <- "RNA"
+DefaultAssay(tenx) <- "RNA"
+IGF2BP2_LR<- FetchData(pacb, vars = "IGF2BP2")
+pacb<-AddMetaData(tenx, IGF2BP2_LR, col.name = "IGF2BP2_LR")
+TESPA1_LR<- FetchData(pacb, vars = "TESPA1")
+
+
+tenx<-AddMetaData(tenx, TESPA1_LR, col.name = "TESPA1_LR")
+p<-FeaturePlot(object = tenx, features = c("IGF2BP2_LR","TESPA1_LR"), order = TRUE, blend = TRUE, max.cutoff = 1, blend.threshold=1)
+
+ggsave(filename = "fig5e_rightpanel_blend_LR_new.png", plot = p,  width = 40, height = 12, units = "cm", dpi = 1000)
+
+```
+
+```{r}
+
+p<- FeaturePlot(object = tenx, features = c("IGF2BP2","TESPA1"), order = TRUE, blend = TRUE, max.cutoff = 1, blend.threshold=1)
+
+ggsave(filename = "fig5e_leftpanel_blend_LR_new.png", plot = p,  width = 40, height = 12, units = "cm", dpi = 300)
+
+```
+
+```{r}
+meta.data <- tenx[[]]
+meta.data <- filter(meta.data, Sample %in% c('B497_Tum'))
+LR <- meta.data %>% dplyr::group_by(celltype_major)  %>% 
+  dplyr::summarise(TESPA1_LR = sum(TESPA1_LR),IGF2BP2_LR = sum(IGF2BP2_LR))
+
+#x<-melt(data.frame(LR), id=c('celltype_major'))
+
+p<-ggplot(data=x, aes(x=celltype_major, y=value, fill=variable)) +
+  geom_bar(stat="identity",position="dodge")
+p
+  
+
+```
+
+```{r}
+IGF2BP2_LR<- FetchData(pacb, vars = "IGF2BP2")
+tenx<-AddMetaData(tenx, IGF2BP2_LR, col.name = "IGF2BP2_LR")
+TESPA1_LR<- FetchData(pacb, vars = "TESPA1")
+tenx<-AddMetaData(tenx, TESPA1_LR, col.name = "TESPA1_LR")
+
+IGF2BP2_SR<- FetchData(tenx, vars = "IGF2BP2")
+tenx<-AddMetaData(tenx, IGF2BP2_SR, col.name = "IGF2BP2_SR")
+TESPA1_SR<- FetchData(tenx, vars = "TESPA1")
+tenx<-AddMetaData(tenx, TESPA1_SR, col.name = "TESPA1_SR")
+```
+
+
+```{r}
+meta.data <- tenx[[]]
+#meta.data <- filter(meta.data, Sample %in% c('B497_Tum'))
+LR <- meta.data %>% dplyr::group_by(Sample, celltype_major)  %>% 
+  dplyr::summarise(TESPA1_SR = sum(TESPA1_SR)) #,IGF2BP2_SR = sum(IGF2BP2_SR)
+
+x<-melt(data.frame(LR), id=c('Sample','celltype_major'))
+
+p1<-ggplot(data=x, aes(x=celltype_major, y=value, fill=Sample)) +
+  geom_bar(stat="identity",position="dodge")+
+  theme(plot.title = element_text(hjust = 0.5,size=16),
+        axis.text.x= element_text(angle = 20, hjust=1,vjust=1),
+        axis.title.y=element_text(size=16))+
+  labs(x='',y='Short-read',title='TESPA1')+ scale_fill_manual(labels = c('Patient 1 Om',"Patient 1 Tum","Patient 2 Tum","Patient 3 Om","Patient 3 Tum"), values = c("#F8766D" ,"#A3A500", "#00BF7D", "#00B0F6", "#E76BF3"))
+p1
+
+ggsave(filename = "fig5f_TESPA1_SR.png", plot = p1,  width = 15, height = 12, units = "cm", dpi = 1000)
+```
+
+```{r}
+meta.data <- tenx[[]]
+#meta.data <- filter(meta.data, Sample %in% c('B497_Tum'))
+LR <- meta.data %>% dplyr::group_by(Sample, celltype_major)  %>% 
+  dplyr::summarise(IGF2BP2_SR = sum(IGF2BP2_SR))
+
+x<-melt(data.frame(LR), id=c('Sample','celltype_major'))
+
+p2<-ggplot(data=x, aes(x=celltype_major, y=value, fill=Sample)) +
+  geom_bar(stat="identity",position="dodge")+
+  theme(plot.title = element_text(hjust = 0.5,size=16),
+        axis.text.x= element_text(angle = 20, hjust=1,vjust=1),
+        axis.title.y=element_text(size=16))+
+  labs(x='',y='',title='IGF2BP2') + scale_fill_manual(labels = c('Patient 1 Om',"Patient 1 Tum","Patient 2 Tum","Patient 3 Om","Patient 3 Tum"), values = c("#F8766D" ,"#A3A500", "#00BF7D", "#00B0F6", "#E76BF3"))
+p2
+
+ggsave(filename = "fig5f_IGF2BP2_SR.png", plot = p2,  width = 15, height = 12, units = "cm", dpi = 300)
+
+```
+```{r}
+meta.data <- tenx[[]]
+#meta.data <- filter(meta.data, Sample %in% c('B497_Tum'))
+LR <- meta.data %>% dplyr::group_by(Sample, celltype_major)  %>% 
+  dplyr::summarise(TESPA1_LR = sum(TESPA1_LR)) #,IGF2BP2_SR = sum(IGF2BP2_SR)
+
+x<-melt(data.frame(LR), id=c('Sample','celltype_major'))
+
+p3<-ggplot(data=x, aes(x=celltype_major, y=value, fill=Sample)) +
+  geom_bar(stat="identity",position="dodge")+
+  theme(plot.title = element_text(hjust = 0.5,size=16),
+        axis.text.x= element_text(angle = 20, hjust=1,vjust=1),
+        axis.title.y=element_text(size=16))+
+  labs(x='',y='Long-reads',title='')+ 
+  scale_fill_manual(labels = c('Patient 1 Om',"Patient 1 Tum","Patient 2 Tum","Patient 3 Om","Patient 3 Tum"), values = c("#F8766D" ,"#A3A500", "#00BF7D", "#00B0F6", "#E76BF3"))
+
+p3
+
+ggsave(filename = "fig5f_TESPA1_LR.png", plot = p3,  width = 15, height = 12, units = "cm", dpi = 300)
+
+```
+```{r}
+meta.data <- tenx[[]]
+#meta.data <- filter(meta.data, Sample %in% c('B497_Tum'))
+LR <- meta.data %>% dplyr::group_by(Sample, celltype_major)  %>% 
+  dplyr::summarise(IGF2BP2_LR = sum(IGF2BP2_LR)) #,IGF2BP2_SR = sum(IGF2BP2_SR)
+
+x<-melt(data.frame(LR), id=c('Sample','celltype_major'))
+
+p4<-ggplot(data=x, aes(x=celltype_major, y=value, fill=Sample)) +
+  geom_bar(stat="identity",position="dodge")+
+  theme(plot.title = element_text(hjust = 0.5,size=16),
+        axis.text.x= element_text(angle = 20, hjust=1,vjust=1),
+        axis.title.y=element_text(size=16))+
+  labs(x='',y='',title='')+ 
+  scale_fill_manual(labels = c('Patient 1 Om',"Patient 1 Tum","Patient 2 Tum","Patient 3 Om","Patient 3 Tum"), values = c("#F8766D" ,"#A3A500", "#00BF7D", "#00B0F6", "#E76BF3"))
+p4
+
+ggsave(filename = "fig5f_IGF2BP2_LR.png", plot = p4,  width = 15, height = 12, units = "cm", dpi = 300)
+
+```
+```{r}
+
+#ggarrange(p1, p2, p3, p4, nrow=2,ncol=2, common.legend = TRUE, legend="right")
+
+p<- ggarrange(p1, p2, NULL, NULL, p3, p4, nrow=3,ncol=2, common.legend = TRUE, legend="right", heights = c(1, -0.12, 1))
+p
+
+ggsave(filename = "fig5f.png", plot = p,  width = 30, height = 24, units = "cm", dpi = 600)
+
+
+```

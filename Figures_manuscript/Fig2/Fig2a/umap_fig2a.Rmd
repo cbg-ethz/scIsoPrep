@@ -1,0 +1,179 @@
+---
+title: "umap_fig2a.Rmd"
+author: "Arthur DONDI"
+date: "8/30/2023"
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
+---
+
+```{r}
+library(Seurat)
+library(sctransform)
+library(tidyverse)
+library(scROSHI)
+library(gridExtra)
+```
+
+
+*cell information*
+```{r}
+filename<-"~/Documents/Projects/ovarian_cancer/data/scAmpi_out/all_merge_coldata.csv"
+temp <- read.csv(filename, row.names=1)
+
+cell_info<- data.frame(temp)
+cell_info <- cbind('barcodes' = rownames(cell_info), cell_info)
+```
+
+*illumina - gene level*
+```{r}
+
+filename<-"~/Documents/Projects/ovarian_cancer/data/scAmpi_out/all_merge_short.csv"
+temp <- read.csv(filename, row.names=1)
+sc_counts<- as.matrix(temp)
+
+
+
+tenx <- CreateSeuratObject(sc_counts, meta.data = cell_info)
+
+tenx <- SCTransform(tenx, latent_var_nonreg = c("g2m_score", "s_score", "Sample"))
+tenx <- RunPCA(tenx, verbose = FALSE)
+tenx <- RunUMAP(tenx, dims = 1:30, verbose = FALSE)
+tenx<- FindNeighbors(tenx, dims = 1:30, verbose = FALSE)
+tenx <- FindClusters(tenx, verbose = FALSE)
+```
+
+*pacbio - gene level*
+```{r}
+
+filename<-"~/Documents/Projects/ovarian_cancer/data/scAmpi_out/all_merge_long.csv"
+temp1 <- read.csv(filename, row.names=1)
+sc_counts_pacb <- as.matrix(temp1)
+
+pacb <- CreateSeuratObject(sc_counts_pacb, meta.data = cell_info)
+
+pacb <- SCTransform(pacb, latent_var_nonreg = c("g2m_score", "s_score", "Sample"))
+
+pacb <- RunPCA(pacb, verbose = FALSE)
+pacb <- RunUMAP(pacb, dims = 1:30, verbose = FALSE)
+pacb <- FindNeighbors(pacb, dims = 1:30, verbose = FALSE)
+pacb <- FindClusters(pacb, verbose = FALSE)
+```
+
+*pacbio - isoform level*
+```{r}
+
+filename<-"~/Documents/Projects/ovarian_cancer/data/scAmpi_out/all_merge_long_isoforms.csv"
+temp <- read.csv(filename, row.names=1)
+sc_counts<- as.matrix(temp)
+
+iso <- SCTransform(iso, latent_var_nonreg = c("g2m_score", "s_score", "Sample"), variable.features.n = 10000)
+
+iso <- RunPCA(iso, verbose = FALSE)
+iso <- RunUMAP(iso, dims = 1:30, verbose = FALSE)
+iso<- FindNeighbors(iso, dims = 1:30, verbose = FALSE)
+iso <- FindClusters(iso, verbose = FALSE)
+```
+
+*preparing pacb celltyping*
+```{r}
+normcounts<-pacb@assays$SCT@counts
+  
+pearson_resid <- pacb[["SCT"]]@scale.data
+
+counts<-temp1[row.names(pearson_resid),]
+normcounts<-normcounts[row.names(pearson_resid),]
+
+#row.names(counts)[2976]<-"novelGene-3579"
+#row.names(counts)[1479]<-"novelGene-20235"
+#cell_info<- data.frame(temp2)
+
+normcounts<-as.matrix(normcounts)
+#setequal(row.names(counts), row.names(normcounts))
+#setdiff(row.names(counts), row.names(normcounts))
+#setequal(row.names(counts), row.names(pearson_resid))
+#setdiff(row.names(counts), row.names(pearson_resid))
+
+cell_info <- cell_info[order(match(cell_info[,1],colnames(counts))),] 
+sce <- SingleCellExperiment(assays = list(counts=counts, 
+                                          normcounts = normcounts, 
+                                          pearson_resid = pearson_resid), colData = cell_info)
+```
+
+*pacb celltyping*
+
+```{r}
+distal.only <- sce[, sce$Tissue == "Distal biopsy"]
+TME.only <- sce[, sce$Tissue == "Metastasis biopsy"]
+
+celltype_config <- read.csv("~/Documents/Projects/ovarian_cancer/data/CellTyping/celltype_config_omentum_2021-05.tsv", sep = '\t')
+path_gmx <- "~/Documents/Projects/ovarian_cancer/data/CellTyping/LR_celltype_list_omentum_2021-05.gmx"
+path_gmx_distal <- "~/Documents/Projects/ovarian_cancer/data/CellTyping/LR_celltype_list_omentum_2021-05_NOCANCER.gmx"
+
+options(warn=-1)
+results_distal <- scROSHI(sce_data = distal.only,
+                   celltype_lists = path_gmx_distal,
+                   type_config = celltype_config,
+                   thresh_uncert=0.99,
+                  thresh_uncert_second=0.99,)
+
+results_TME <- scROSHI(sce_data = TME.only,
+                   celltype_lists = path_gmx,
+                   type_config = celltype_config,
+                   thresh_uncert=0.99,
+                  thresh_uncert_second=0.99,)
+
+results_revisions <- cbind(results_distal,results_TME)
+```
+
+
+*add pacb celltypes to cellinfo*
+```{r}
+ctypes_pacb <- data.frame(barcodes = results_revisions$barcodes, 
+                          celltype_major = results_revisions$celltype_major, 
+                          celltype_final = results_revisions$celltype_final, 
+                          row.names = results_revisions$barcodes)
+
+ctypes_pacb<- ctypes_pacb[order(match(ctypes_pacb[,"barcodes"],colnames(iso))),]
+iso<-AddMetaData(iso, ctypes_pacb$celltype_major, col.name = "celltype_major_LR_revision")
+
+ctypes_pacb<- ctypes_pacb[order(match(ctypes_pacb[,"barcodes"],colnames(pacb))),]
+pacb<-AddMetaData(pacb, ctypes_pacb$celltype_major, col.name = "celltype_major_LR_revision")
+
+ctypes_pacb<- ctypes_pacb[order(match(ctypes_pacb[,"barcodes"],colnames(tenx))),]
+tenx<-AddMetaData(tenx, ctypes_pacb$celltype_major, col.name = "celltype_major_LR_revision")
+```
+
+*plot*
+
+```{r}
+p1 <- DimPlot(tenx, group.by = 'celltype_major', cols = c("green", "pink", "orange","purple",'red','brown','blue','yellow' )) + theme(legend.position="none", plot.margin=unit(c(-0.5,0,-0.5,0), "cm")) + 
+  ggtitle("") + xlab('') + ylab('')
+
+p2 <- DimPlot(pacb, group.by = 'celltype_major', cols = c("green", "pink", "orange","purple",'red','brown','blue','yellow' )) + theme(legend.position="none", plot.margin=unit(c(-0.5,0,-0.5,0), "cm")) + 
+  ggtitle("") + xlab('') + ylab('') 
+
+p3 <- DimPlot(iso, group.by = 'celltype_major', cols = c("green", "pink", "orange","purple",'red','brown','blue','yellow' )) + theme(legend.position="none", plot.margin=unit(c(-0.5,0,-0.5,0), "cm")) + 
+  ggtitle("") + xlab('') + ylab('') 
+
+p4 <- DimPlot(tenx, group.by = 'celltype_major_LR_revision', cols = c("green", "pink", "orange","purple",'red','brown','blue','yellow' )) + theme(legend.position="none", plot.margin=unit(c(-0.5,0,0,0), "cm")) + 
+  ggtitle("") + xlab('') + ylab('')
+
+p5 <- DimPlot(pacb, group.by = 'celltype_major_LR_revision', cols = c("green", "pink", "orange","purple",'red','brown','blue','yellow' )) + theme(legend.position="none", plot.margin=unit(c(-0.5,0,0,0), "cm")) + 
+  ggtitle("") + xlab('') + ylab('')
+
+p6 <- DimPlot(iso, group.by = 'celltype_major_LR_revision', cols = c("green", "pink", "orange","purple",'red','brown','blue','yellow' )) + theme(legend.position="none", plot.margin=unit(c(-0.5,0,0,0), "cm")) + 
+  ggtitle("") + xlab('') + ylab('')
+
+```
+
+```{r}
+
+p<-grid.arrange(p1, p2, p3, p4, p5, p6, nrow = 2)
+
+#margin = theme(plot.margin = unit(c(2,2,2,2), "cm"))
+
+ggsave(filename = "Fig2a.png", plot = p, device = 'png',  width = 30, height = 20, units = "cm", dpi = 600)
+
+```
