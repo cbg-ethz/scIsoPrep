@@ -1,5 +1,5 @@
 # scIsoPrep
-A [Snakemake](https://snakemake.github.io/) pipeline for analyzing multiplexed single-cell PacBio concatenated long-reads.
+A [Snakemake](https://snakemake.github.io/) pipeline for analyzing multiplexed single-cell PacBio concatenated long-reads, used on ovarian cancer data in our recent [publication](https://www.biorxiv.org/content/10.1101/2022.12.12.520051v3)
 
 scIsoPrep offers the possibility to unconcatenate, trim, demultiplex large single-cell Pacbio multisample datasets using [IsoSeq3](https://isoseq.how/). It can also collapse transcripts using [cDNA_Cupcake](https://github.com/Magdoll/cDNA_Cupcake) and classify them using [SQANTI3](https://github.com/ConesaLab/SQANTI3). scIsoPrep first collapses transcripts and filter them per cell, and then repeat this step on all cells together in order to create a common isoforms catalog, using reads attached to isoforms passing all filters in individual cells. This software is intended to be used on HPC.
 
@@ -41,6 +41,10 @@ The scIsoPrep wrapper script `run_scisoprep.py` can be run with the following sh
 ```bash
 ./run_scIsoPrep 
 ```
+
+It should run for less than a day on HPC, and the output file `AllInfo` should be found in the `results` folder.
+
+
 ## Before running the pipeline
 
 
@@ -69,25 +73,7 @@ The scIsoPrep wrapper script `run_scisoprep.py` can be run with the following sh
   * This pipeline take as input either concatenated or unconcatenated reads PacBio CCS bam files. I you use concatenated reads input, files should be named `SampleA_1.bam`, `SampleA_2.bam`, `SampleB_1.bam`, etc. (sample name should correspond to the sample map).  If you use unconcatenated reads as input, files should be named `SampleA_1.subreads.bam`, etc.
 
 
-# Example data
 
-### Downloading data
 
-Data is available on Zenodo : XXX.
-
-As the data is unconcatenated single-cell long-reads data, files should be called `retina_wXX.subreads.bam`
-
-### Run
-
-Edit the `config_retina.yaml` file in the `config` folder, and change the data_path to the folders where bam input files are. Do the same for genome and annotation folder(s). 
-
-Then, edit the `run_scisoprep.py` file and change `--configfile` to `config/config_retina.yaml`.
-
-You can then run the pipeline:
-```bash
-./run_scIsoPrep 
-```
-
-It should run for less thant 2 hours on HPC, and the output file `AllInfo` should be found in the `example_data/results` folder.
 
 
