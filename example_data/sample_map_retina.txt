@@ -1,3 +1,0 @@
-sample	files
-retina_w15	2
-retina_w23	2

@@ -1,5 +1,5 @@
 # scIsoPrep
-A [Snakemake](https://snakemake.github.io/) pipeline for analyzing multiplexed single-cell PacBio concatenated long-reads, used on ovarian cancer data in our recent [publication](https://www.biorxiv.org/content/10.1101/2022.12.12.520051v3)
+A [Snakemake](https://snakemake.github.io/) pipeline for analyzing multiplexed single-cell PacBio concatenated long-reads, used on ovarian cancer data in our recent [publication](https://www.biorxiv.org/content/10.1101/2022.12.12.520051v3).
 
 scIsoPrep offers the possibility to unconcatenate, trim, demultiplex large single-cell Pacbio multisample datasets using [IsoSeq3](https://isoseq.how/). It can also collapse transcripts using [cDNA_Cupcake](https://github.com/Magdoll/cDNA_Cupcake) and classify them using [SQANTI3](https://github.com/ConesaLab/SQANTI3). scIsoPrep first collapses transcripts and filter them per cell, and then repeat this step on all cells together in order to create a common isoforms catalog, using reads attached to isoforms passing all filters in individual cells. This software is intended to be used on HPC.
 
