@@ -9,6 +9,6 @@ specific:
 static:
   data_path: <path/to>/data_bamfiles
   bin_path: <path/to>/scIsoPrep/scripts
-  adapters: lima_adapters2.fasta
+  adapters: <path/to>/scIsoPrep/primers/primers_default.fasta
   genome: <path/to>/hg38.fa
   annotation: <path/to>/gencode.vXX.annotation.gtf
