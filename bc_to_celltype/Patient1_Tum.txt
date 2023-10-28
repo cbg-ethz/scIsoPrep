@@ -1,4 +1,4 @@
-qbarcodes	celltype_final
+barcodes	celltype_final
 AAACCCATCGAGATAA	T.NK.cells
 AAACCCATCTATCGGA	HGSOC
 AAACGCTAGGAGGTTC	HGSOC
